@@ -1,0 +1,67 @@
+{
+  "name": "torchlit",
+  "version": "0.1.0",
+  "description": "Lightweight guided-tour & onboarding library built on Lit web components. Shadow DOM aware, framework-agnostic, tiny footprint.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./service": {
+      "import": "./dist/tour-service.js",
+      "types": "./dist/tour-service.d.ts"
+    },
+    "./overlay": {
+      "import": "./dist/tour-overlay.js",
+      "types": "./dist/tour-overlay.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "./dist/tour-overlay.js"
+  ],
+  "scripts": {
+    "dev": "vite serve examples",
+    "build": "vite build && tsc --emitDeclarationOnly --outDir dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "keywords": [
+    "tour",
+    "onboarding",
+    "torchlit",
+    "spotlight",
+    "guided-tour",
+    "web-components",
+    "lit",
+    "shadow-dom",
+    "walkthrough",
+    "tooltip"
+  ],
+  "author": "Barry King (https://github.com/barryking)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barryking/torchlit.git"
+  },
+  "homepage": "https://github.com/barryking/torchlit",
+  "bugs": "https://github.com/barryking/torchlit/issues",
+  "peerDependencies": {
+    "lit": "^3.0.0"
+  },
+  "devDependencies": {
+    "jsdom": "^28.0.0",
+    "lit": "^3.2.1",
+    "typescript": "^5.7.0",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.0"
+  }
+}

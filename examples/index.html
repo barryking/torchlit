@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torchlit — Demo</title>
+
+  <!-- ── Fonts ─────────────────────────────────────────────────────── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- ── Theme tokens ──────────────────────────────────────────────── -->
+  <style>
+    :root {
+      /* Light theme */
+      --primary: oklch(0.55 0.18 250);
+      --primary-foreground: #fff;
+      --background: #fafbfc;
+      --foreground: #0f1419;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --muted: #f1f5f9;
+      --muted-foreground: #64748b;
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 1rem;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+    }
+
+    :root.dark {
+      --primary: oklch(0.72 0.16 250);
+      --primary-foreground: #0f1419;
+      --background: #0f1419;
+      --foreground: #e2e8f0;
+      --card: #1a2332;
+      --border: #2d3d50;
+      --muted: #1e2d3d;
+      --muted-foreground: #8899aa;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    /* ── Reset & base ────────────────────────────────────────────── */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+
+    .app {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      grid-template-rows: 56px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.25rem;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo {
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo svg { color: var(--primary-foreground); }
+
+    .app-name {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .icon-btn:hover {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+
+    .sidebar {
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      padding: 1rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .sidebar-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      padding: 0.5rem 0.75rem 0.375rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .nav-item:hover {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
+    .nav-item.active {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    .nav-item svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-footer {
+      padding: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 0.5rem;
+    }
+
+    .sidebar-footer-text {
+      font-size: 0.6875rem;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+    }
+
+    .sidebar-footer-text code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.625rem;
+      background: var(--muted);
+      padding: 0.1em 0.35em;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ── Main content ────────────────────────────────────────────── */
+
+    .main {
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.375rem;
+    }
+
+    .page-subtitle {
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    /* ── Cards grid ──────────────────────────────────────────────── */
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.75rem;
+      color: #fff;
+    }
+
+    .card-icon.blue { background: oklch(0.6 0.15 250); }
+    .card-icon.green { background: oklch(0.6 0.15 155); }
+    .card-icon.amber { background: oklch(0.7 0.15 70); }
+    .card-icon.rose { background: oklch(0.6 0.15 15); }
+
+    :root.dark .card-icon.blue { background: oklch(0.5 0.12 250); }
+    :root.dark .card-icon.green { background: oklch(0.5 0.12 155); }
+    :root.dark .card-icon.amber { background: oklch(0.6 0.12 70); }
+    :root.dark .card-icon.rose { background: oklch(0.5 0.12 15); }
+
+    .card-icon svg { width: 18px; height: 18px; }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .card-desc {
+      font-size: 0.8125rem;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+    }
+
+    /* ── Stats bar ───────────────────────────────────────────────── */
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* ── Placeholder content ─────────────────────────────────────── */
+
+    .placeholder-block {
+      background: var(--muted);
+      border-radius: var(--radius-lg);
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted-foreground);
+      font-size: 0.8125rem;
+      border: 1px dashed var(--border);
+    }
+
+    /* ── Search bar ──────────────────────────────────────────────── */
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 1.5rem;
+      color: var(--muted-foreground);
+      font-size: 0.8125rem;
+    }
+
+    .search-bar svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .search-bar input {
+      all: unset;
+      flex: 1;
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--foreground);
+    }
+
+    .search-bar input::placeholder {
+      color: var(--muted-foreground);
+    }
+
+    /* ── Badge ───────────────────────────────────────────────────── */
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    .badge.primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ── Header ───────────────────────────────────────────────── -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path>
+          </svg>
+        </div>
+        <span class="app-name">Torchlit</span>
+        <span class="badge primary">demo</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-help" data-tour-id="header-help" title="Contextual help">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-theme" data-tour-id="header-theme" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-reset" title="Reset tours (re-trigger onboarding)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Sidebar ──────────────────────────────────────────────── -->
+    <nav class="sidebar">
+      <div class="sidebar-label">Navigation</div>
+
+      <button class="nav-item active" data-page="home" data-tour-id="nav-home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        Home
+      </button>
+
+      <button class="nav-item" data-page="reports" data-tour-id="nav-reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        Reports
+      </button>
+
+      <button class="nav-item" data-page="settings" data-tour-id="nav-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        Settings
+      </button>
+
+      <button class="nav-item" data-page="profile" data-tour-id="nav-profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Profile
+      </button>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-text">
+          Powered by <code>torchlit</code><br />
+          Shadow DOM aware tours
+        </div>
+      </div>
+    </nav>
+
+    <!-- ── Main content ─────────────────────────────────────────── -->
+    <main class="main" data-tour-id="main-content">
+      <!-- Home page -->
+      <div class="page active" id="page-home">
+        <h1 class="page-title">Welcome Home</h1>
+        <p class="page-subtitle">
+          This is a demo application showcasing <strong>Torchlit</strong> — a lightweight
+          guided-tour library built on Lit web components with deep shadow DOM support.
+        </p>
+
+        <div class="stats-bar" data-tour-id="home-stats">
+          <div class="stat-card">
+            <div class="stat-label">Active tours</div>
+            <div class="stat-value">2</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Bundle size</div>
+            <div class="stat-value">~6 KB</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Dependencies</div>
+            <div class="stat-value">Lit only</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Frameworks</div>
+            <div class="stat-value">Any</div>
+          </div>
+        </div>
+
+        <div class="cards-grid" data-tour-id="home-features">
+          <div class="card">
+            <div class="card-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <div class="card-title">Shadow DOM Traversal</div>
+            <div class="card-desc">Finds tour targets inside shadow roots — something Shepherd.js and Intro.js can't do.</div>
+          </div>
+          <div class="card">
+            <div class="card-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <div class="card-title">Framework Agnostic</div>
+            <div class="card-desc">Web Components work in React, Vue, Angular, Svelte, or vanilla JS — zero adapters needed.</div>
+          </div>
+          <div class="card">
+            <div class="card-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+            </div>
+            <div class="card-title">CSS Custom Properties</div>
+            <div class="card-desc">Theme with CSS variables. Dark mode, brand colors — it adapts automatically.</div>
+          </div>
+          <div class="card">
+            <div class="card-icon rose">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+            </div>
+            <div class="card-title">Tiny Footprint</div>
+            <div class="card-desc">~6 KB gzipped (with Lit peer). Compare to Shepherd (~50 KB with Popper).</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reports page -->
+      <div class="page" id="page-reports">
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">Visualize your data with interactive charts and tables.</p>
+        <div class="search-bar" data-tour-id="reports-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" placeholder="Search reports..." />
+        </div>
+        <div class="placeholder-block" data-tour-id="reports-chart">Chart area — your data visualizations go here</div>
+      </div>
+
+      <!-- Settings page -->
+      <div class="page" id="page-settings">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Configure your application preferences.</p>
+        <div class="cards-grid">
+          <div class="card" data-tour-id="settings-general">
+            <div class="card-title">General</div>
+            <div class="card-desc">Language, timezone, and display preferences.</div>
+          </div>
+          <div class="card" data-tour-id="settings-notifications">
+            <div class="card-title">Notifications</div>
+            <div class="card-desc">Email alerts, push notifications, and digest settings.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Integrations</div>
+            <div class="card-desc">Connect third-party services and APIs.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Security</div>
+            <div class="card-desc">Two-factor auth, API keys, and session management.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile page -->
+      <div class="page" id="page-profile">
+        <h1 class="page-title">Profile</h1>
+        <p class="page-subtitle">Manage your account information.</p>
+        <div class="card" style="max-width: 400px;" data-tour-id="profile-card">
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+            <div style="width:48px;height:48px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:var(--primary-foreground);font-weight:700;font-size:1.125rem;">D</div>
+            <div>
+              <div class="card-title">Demo User</div>
+              <div class="card-desc">demo@torchlit.dev</div>
+            </div>
+          </div>
+          <div class="card-desc">This is a demo profile card. In a real app, you'd manage your account details here.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── Tour overlay (the library component) ──────────────────── -->
+  <torchlit-overlay></torchlit-overlay>
+
+  <!-- ── Application script ────────────────────────────────────── -->
+  <script type="module">
+    // In development: import directly from source (Vite resolves these)
+    // In production: consumers would import from 'torchlit'
+    import { createTourService } from '../src/index.ts';
+    import '../src/tour-overlay.ts';
+
+    // ── Create a tour service instance ──────────────────────────────
+
+    const tours = createTourService({ storageKey: 'torchlit-demo' });
+
+    // ── Wire the overlay to the service ─────────────────────────────
+
+    const overlay = document.querySelector('torchlit-overlay');
+    overlay.service = tours;
+
+    // ── Page navigation ─────────────────────────────────────────────
+
+    function switchPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const page = document.getElementById(`page-${name}`);
+      const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
+      if (page) page.classList.add('active');
+      if (nav) nav.classList.add('active');
+    }
+
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchPage(btn.dataset.page);
+      });
+    });
+
+    // Handle route changes from tour steps
+    overlay.addEventListener('tour-route-change', (e) => {
+      switchPage(e.detail.route);
+    });
+
+    // ── Define tours ────────────────────────────────────────────────
+
+    tours.register([
+      // ── 1. Onboarding — auto-starts on first visit ────────────────
+      {
+        id: 'onboarding',
+        name: 'Welcome Tour',
+        trigger: 'first-visit',
+        steps: [
+          {
+            target: '_none_',
+            title: 'Welcome to Torchlit!',
+            message:
+              'This is a quick tour of the demo app. We\'ll show you the key areas ' +
+              'so you can see how guided tours work. Use arrow keys or click Next.',
+            placement: 'bottom',
+          },
+          {
+            target: 'nav-home',
+            title: 'Navigation',
+            message:
+              'The sidebar lets you move between pages. Each page can have ' +
+              'its own contextual help tour.',
+            placement: 'right',
+          },
+          {
+            target: 'home-stats',
+            title: 'At-a-Glance Stats',
+            message:
+              'Key metrics are displayed prominently. The spotlight ' +
+              'highlights exactly the element you want users to notice.',
+            placement: 'bottom',
+          },
+          {
+            target: 'home-features',
+            title: 'Feature Cards',
+            message:
+              'These cards showcase what makes Torchlit unique. ' +
+              'Shadow DOM traversal, framework-agnostic design, tiny bundle size.',
+            placement: 'top',
+          },
+          {
+            target: 'nav-reports',
+            title: 'Reports Page',
+            message:
+              'Tours can switch pages automatically using the route property ' +
+              'and beforeShow hooks. Watch — we\'ll jump to Reports next.',
+            placement: 'right',
+          },
+          {
+            target: 'reports-chart',
+            title: 'Data Visualization',
+            message:
+              'The spotlight followed you to a different page! ' +
+              'The tour continued seamlessly across route changes.',
+            placement: 'top',
+            beforeShow: () => switchPage('reports'),
+          },
+          {
+            target: 'header-help',
+            title: 'Need Help?',
+            message:
+              'Click the ? button anytime for contextual help about ' +
+              'the current page. You\'re all set!',
+            placement: 'bottom',
+            beforeShow: () => switchPage('home'),
+          },
+        ],
+        onComplete: () => console.log('[demo] Onboarding complete!'),
+        onSkip: () => console.log('[demo] Onboarding skipped'),
+      },
+
+      // ── 2. Contextual help tours (manual) ─────────────────────────
+      {
+        id: 'home-help',
+        name: 'Home Page Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'home-stats',
+            title: 'Stats Overview',
+            message:
+              'These cards show key metrics about the library: bundle size, ' +
+              'dependency count, and framework compatibility.',
+            placement: 'bottom',
+          },
+          {
+            target: 'home-features',
+            title: 'Feature Highlights',
+            message:
+              'Each card describes a key differentiator. Hover them for ' +
+              'a subtle lift effect — all CSS, no JS.',
+            placement: 'top',
+          },
+          {
+            target: 'header-theme',
+            title: 'Theme Toggle',
+            message:
+              'Switch between light and dark mode. The tour overlay adapts ' +
+              'automatically via CSS custom properties — zero config.',
+            placement: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'reports-help',
+        name: 'Reports Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'reports-search',
+            title: 'Search Reports',
+            message: 'Filter reports by keyword. Results update in real-time.',
+            placement: 'bottom',
+          },
+          {
+            target: 'reports-chart',
+            title: 'Chart Area',
+            message: 'Interactive charts render here. Click data points for details.',
+            placement: 'top',
+          },
+        ],
+      },
+      {
+        id: 'settings-help',
+        name: 'Settings Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'settings-general',
+            title: 'General Settings',
+            message: 'Configure language, timezone, and display preferences here.',
+            placement: 'bottom',
+          },
+          {
+            target: 'settings-notifications',
+            title: 'Notification Preferences',
+            message: 'Control email alerts, push notifications, and digest frequency.',
+            placement: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'profile-help',
+        name: 'Profile Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'profile-card',
+            title: 'Your Profile',
+            message: 'View and edit your account details, avatar, and contact info.',
+            placement: 'right',
+          },
+        ],
+      },
+    ]);
+
+    // ── Map pages to help tours ─────────────────────────────────────
+
+    const helpMap = {
+      home: 'home-help',
+      reports: 'reports-help',
+      settings: 'settings-help',
+      profile: 'profile-help',
+    };
+
+    // ── Button handlers ─────────────────────────────────────────────
+
+    // Help — start contextual tour for current page
+    document.getElementById('btn-help').addEventListener('click', () => {
+      const activePage = document.querySelector('.nav-item.active')?.dataset.page || 'home';
+      const tourId = helpMap[activePage];
+      if (tourId) tours.start(tourId);
+    });
+
+    // Theme toggle
+    document.getElementById('btn-theme').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+
+    // Reset — clear tour state and reload to re-trigger onboarding
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      tours.resetAll();
+      location.reload();
+    });
+
+    // ── Auto-start onboarding on first visit ────────────────────────
+
+    if (tours.shouldAutoStart('onboarding')) {
+      setTimeout(() => tours.start('onboarding'), 800);
+    }
+  </script>
+</body>
+</html>
