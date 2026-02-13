@@ -599,8 +599,12 @@
   <script type="module">
     // In development: import directly from source (Vite resolves these)
     // In production: consumers would import from 'torchlit'
-    import { createTourService } from '../src/index.ts';
-    import '../src/tour-overlay.ts';
+    import { createTourService, TorchlitOverlay } from '../src/index.ts';
+
+    // Ensure the custom element registration survives tree-shaking
+    if (!customElements.get('torchlit-overlay')) {
+      customElements.define('torchlit-overlay', TorchlitOverlay);
+    }
 
     // ── Create a tour service instance ──────────────────────────────
 

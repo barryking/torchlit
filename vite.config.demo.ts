@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 /**
  * Builds the examples/ demo as a standalone app for GitHub Pages.
@@ -11,6 +12,11 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   root: 'examples',
   base: '/torchlit/',
+  resolve: {
+    // Ensure Vite resolves node_modules from the project root,
+    // not from the examples/ subdirectory
+    modules: [resolve(__dirname, 'node_modules'), 'node_modules'],
+  },
   build: {
     outDir: '../docs',
     emptyOutDir: true,
