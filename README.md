@@ -18,6 +18,10 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license" />
 </p>
 
+<p align="center">
+  <a href="https://barryking.github.io/torchlit/"><strong>Live Demo</strong></a>
+</p>
+
 ---
 
 ## Why Torchlit?
