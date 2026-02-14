@@ -165,6 +165,73 @@ describe('TourService', () => {
     });
   });
 
+  /* ── Loop ───────────────────────────────────────── */
+
+  describe('loop', () => {
+    const loopTour: TourDefinition = {
+      id: 'loop-tour',
+      name: 'Loop Tour',
+      trigger: 'manual',
+      loop: true,
+      steps: [
+        { target: 'a', title: 'A', message: 'Msg A', placement: 'right' },
+        { target: 'b', title: 'B', message: 'Msg B', placement: 'bottom' },
+      ],
+    };
+
+    it('wraps back to step 0 when advancing past the last step', () => {
+      service.register(loopTour);
+      service.start('loop-tour');
+
+      service.nextStep(); // step 1
+      service.nextStep(); // should wrap to step 0
+
+      expect(service.isActive()).toBe(true);
+      const snap = service.getSnapshot();
+      expect(snap!.stepIndex).toBe(0);
+      expect(snap!.step.title).toBe('A');
+    });
+
+    it('does not mark the tour as completed', () => {
+      service.register(loopTour);
+      service.start('loop-tour');
+      service.nextStep();
+      service.nextStep(); // wraps
+
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const stored = raw ? JSON.parse(raw) : { completed: [] };
+      expect(stored.completed).not.toContain('loop-tour');
+    });
+
+    it('can still be skipped normally', () => {
+      service.register(loopTour);
+      service.start('loop-tour');
+      service.skipTour();
+
+      expect(service.isActive()).toBe(false);
+    });
+
+    it('does not call onComplete on wrap', () => {
+      const onComplete = vi.fn();
+      service.register({ ...loopTour, id: 'loop-hooks', onComplete });
+      service.start('loop-hooks');
+      service.nextStep();
+      service.nextStep(); // wraps
+
+      expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it('non-loop tour still completes normally', () => {
+      const onComplete = vi.fn();
+      service.register(makeTour({ id: 'no-loop', onComplete }));
+      service.start('no-loop');
+      service.nextStep(); // single step → completes
+
+      expect(service.isActive()).toBe(false);
+      expect(onComplete).toHaveBeenCalledOnce();
+    });
+  });
+
   /* ── Lifecycle hooks ─────────────────────────── */
 
   describe('onComplete / onSkip hooks', () => {

@@ -1,3 +1,5 @@
+import type { TemplateResult } from 'lit';
+
 // ── Placement ────────────────────────────────────────────────────────────────
 
 /** Where to position the tooltip relative to the spotlight target. */
@@ -16,11 +18,32 @@ export interface TourStep {
   /** Bold title shown in the tooltip. */
   title: string;
 
-  /** Descriptive message shown below the title. */
-  message: string;
+  /**
+   * Descriptive message shown below the title.
+   *
+   * Accepts a plain string **or** a Lit `TemplateResult` for rich HTML content:
+   * ```ts
+   * message: html`Click <strong>here</strong> to continue.`
+   * ```
+   */
+  message: string | TemplateResult;
 
   /** Where to position the tooltip relative to the target. */
   placement: TourPlacement;
+
+  /**
+   * Override the spotlight border-radius for this step.
+   * Use `'50%'` for a circle, `'9999px'` for a pill, `'0'` for sharp corners.
+   * Falls back to the `--tour-spotlight-radius` CSS custom property.
+   */
+  spotlightBorderRadius?: string;
+
+  /**
+   * Automatically advance to the next step after this many milliseconds.
+   * Useful for demo / kiosk modes. A progress bar is rendered at the bottom
+   * of the tooltip. Manual interaction (Next / Back / Skip) cancels the timer.
+   */
+  autoAdvance?: number;
 
   /**
    * Arbitrary route / view hint.
@@ -53,6 +76,24 @@ export interface TourDefinition {
 
   /** Ordered list of tour steps. */
   steps: TourStep[];
+
+  /**
+   * When `true`, advancing past the last step restarts at step 0
+   * instead of completing. Combine with `autoAdvance` for kiosk / demo modes.
+   * The user can still exit via Skip or Escape.
+   */
+  loop?: boolean;
+
+  /**
+   * Scroll behaviour when the tour ends (completes or is skipped).
+   *
+   * - `'restore'` — scroll back to where the user was before the tour started (default)
+   * - `'top'` — scroll to the top of the page
+   * - `'none'` — leave the scroll position as-is
+   *
+   * @default `'restore'`
+   */
+  onEndScroll?: 'restore' | 'top' | 'none';
 
   /** Called when the user completes every step in the tour. */
   onComplete?: () => void;

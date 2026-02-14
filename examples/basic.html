@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torchlit — Basic Example</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { margin-bottom: 0.5rem; }
+    p { color: #6b7280; margin-bottom: 1.5rem; }
+    nav { display: flex; gap: 1rem; padding: 1rem; background: #f3f4f6; border-radius: 0.5rem; margin-bottom: 1rem; }
+    nav a { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .search { padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 0.375rem; width: 100%; font-size: 0.875rem; margin-bottom: 1rem; }
+    .content { padding: 2rem; background: #f9fafb; border-radius: 0.5rem; border: 1px solid #e5e7eb; }
+    button { padding: 0.5rem 1rem; background: #F26122; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; }
+    button:hover { background: #BF4A1A; }
+  </style>
+</head>
+<body>
+  <h1 data-tour-id="title">My App</h1>
+  <p>A minimal Torchlit example — click the button to start the tour.</p>
+
+  <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+    <button id="start-tour">Start Tour</button>
+    <div data-tour-id="avatar" style="width: 48px; height: 48px; border-radius: 50%; background: #F26122; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.125rem; cursor: pointer;" title="Profile avatar">BK</div>
+  </div>
+
+  <nav data-tour-id="nav">
+    <a href="#">Home</a>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+  </nav>
+
+  <input class="search" data-tour-id="search" type="text" placeholder="Search…" />
+
+  <div class="content" data-tour-id="content">
+    <p>Your main content goes here. Each element with a <code>data-tour-id</code> can be spotlighted.</p>
+  </div>
+
+  <torchlit-overlay></torchlit-overlay>
+
+  <script type="module">
+    // In a real project: import from 'torchlit'
+    import { createTourService, TorchlitOverlay } from '../src/index.ts';
+
+    if (!customElements.get('torchlit-overlay')) {
+      customElements.define('torchlit-overlay', TorchlitOverlay);
+    }
+
+    const tours = createTourService({ storageKey: 'basic-example' });
+
+    const overlay = document.querySelector('torchlit-overlay');
+    overlay.service = tours;
+
+    tours.register({
+      id: 'intro',
+      name: 'Introduction',
+      trigger: 'manual',
+      steps: [
+        {
+          target: '_none_',
+          title: 'Welcome!',
+          message: 'This is a basic Torchlit example. Let\'s walk through the key areas.',
+          placement: 'bottom',
+        },
+        {
+          target: 'avatar',
+          title: 'Profile Avatar',
+          message: 'This step uses spotlightBorderRadius: \'50%\' for a circular spotlight.',
+          placement: 'right',
+          spotlightBorderRadius: '50%',
+        },
+        {
+          target: 'nav',
+          title: 'Navigation',
+          message: 'The navigation bar lets you move between sections.',
+          placement: 'bottom',
+        },
+        {
+          target: 'search',
+          title: 'Search',
+          message: 'Use the search bar to find content quickly.',
+          placement: 'bottom',
+        },
+        {
+          target: 'content',
+          title: 'Main Content',
+          message: 'Your main content area. That\'s the tour — simple!',
+          placement: 'top',
+        },
+      ],
+    });
+
+    document.getElementById('start-tour').addEventListener('click', () => {
+      tours.start('intro');
+    });
+  </script>
+</body>
+</html>

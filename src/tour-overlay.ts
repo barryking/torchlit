@@ -1,7 +1,17 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
+import { deepQuery } from './utils/deep-query.js';
 import type { TourService } from './tour-service.js';
-import type { TourSnapshot, TourPlacement } from './types.js';
+import type { TourStep, TourSnapshot, TourPlacement } from './types.js';
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const TOOLTIP_W = 320;
+const TOOLTIP_H_MAX = 270;  // conservative max height for clamp & flip checks
+const GAP = 16;
+const VIEWPORT_MARGIN = 24;
+const MUTATION_TIMEOUT = 3000;
 
 /**
  * `<torchlit-overlay>` — Full-screen overlay that renders a spotlight cutout
@@ -32,6 +42,20 @@ export class TorchlitOverlay extends LitElement {
   static override styles = css`
     :host {
       display: block;
+    }
+
+    /* ── Visually hidden (sr-only) ─────────────────── */
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* ── Backdrop ──────────────────────────────────── */
@@ -69,7 +93,7 @@ export class TorchlitOverlay extends LitElement {
       position: absolute;
       inset: -4px;
       border-radius: inherit;
-      border: 2px solid var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      border: 2px solid var(--tour-primary, var(--primary, #F26122));
       opacity: 0.5;
       animation: spotlightPulse 2s ease-in-out infinite;
     }
@@ -84,6 +108,7 @@ export class TorchlitOverlay extends LitElement {
     .tour-tooltip {
       position: fixed;
       z-index: 10000;
+      box-sizing: border-box;
       width: 320px;
       background: var(--tour-card, var(--card, #fff));
       border: 1px solid var(--tour-border, var(--border, #e5e5e5));
@@ -99,12 +124,16 @@ export class TorchlitOverlay extends LitElement {
                   left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    .tour-tooltip:focus {
+      outline: none;
+    }
+
     .tour-tooltip.visible {
       opacity: 1;
       transform: translateY(0) scale(1);
     }
 
-    /* Arrow */
+    /* Arrow — position along edge is set via inline --arrow-offset */
     .tour-arrow {
       position: absolute;
       width: 12px;
@@ -114,33 +143,37 @@ export class TorchlitOverlay extends LitElement {
       transform: rotate(45deg);
     }
 
+    /* tooltip is above target → arrow at bottom of tooltip pointing down */
     .tour-arrow.arrow-top {
       bottom: -7px;
-      left: 50%;
+      left: var(--arrow-offset, 50%);
       margin-left: -6px;
       border-top: none;
       border-left: none;
     }
 
+    /* tooltip is below target → arrow at top of tooltip pointing up */
     .tour-arrow.arrow-bottom {
       top: -7px;
-      left: 50%;
+      left: var(--arrow-offset, 50%);
       margin-left: -6px;
       border-bottom: none;
       border-right: none;
     }
 
+    /* tooltip is right of target → arrow on left edge pointing left */
     .tour-arrow.arrow-left {
       right: -7px;
-      top: 50%;
+      top: var(--arrow-offset, 50%);
       margin-top: -6px;
       border-bottom: none;
       border-left: none;
     }
 
+    /* tooltip is left of target → arrow on right edge pointing right */
     .tour-arrow.arrow-right {
       left: -7px;
-      top: 50%;
+      top: var(--arrow-offset, 50%);
       margin-top: -6px;
       border-top: none;
       border-right: none;
@@ -156,7 +189,7 @@ export class TorchlitOverlay extends LitElement {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      color: var(--tour-primary, var(--primary, #F26122));
       margin-bottom: 0.5rem;
     }
 
@@ -193,13 +226,31 @@ export class TorchlitOverlay extends LitElement {
     }
 
     .tour-dot.active {
-      background: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      background: var(--tour-primary, var(--primary, #F26122));
       transform: scale(1.3);
     }
 
     .tour-dot.completed {
-      background: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      background: var(--tour-primary, var(--primary, #F26122));
       opacity: 0.5;
+    }
+
+    /* ── Auto-advance progress bar ────────────────── */
+
+    .tour-auto-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      max-width: 100%;
+      height: 3px;
+      background: var(--tour-primary, var(--primary, #F26122));
+      opacity: 0.7;
+      border-radius: 0 0 var(--tour-tooltip-radius, var(--radius-lg, 0.75rem)) var(--tour-tooltip-radius, var(--radius-lg, 0.75rem));
+    }
+
+    @keyframes autoAdvanceFill {
+      from { width: 0%; }
+      to { width: 100%; }
     }
 
     /* ── Footer buttons ───────────────────────────── */
@@ -248,10 +299,15 @@ export class TorchlitOverlay extends LitElement {
       background: var(--tour-muted, var(--muted, #f5f5f5));
     }
 
+    .tour-btn:focus-visible {
+      outline: 2px solid var(--tour-primary, var(--primary, #F26122));
+      outline-offset: 2px;
+    }
+
     .tour-btn.primary {
-      background: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      background: var(--tour-primary, var(--primary, #F26122));
       color: var(--tour-primary-foreground, var(--primary-foreground, #fff));
-      border-color: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      border-color: var(--tour-primary, var(--primary, #F26122));
     }
 
     .tour-btn.primary:hover {
@@ -268,6 +324,7 @@ export class TorchlitOverlay extends LitElement {
     .tour-center-card {
       position: fixed;
       z-index: 10000;
+      box-sizing: border-box;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%) scale(0.96);
@@ -284,6 +341,10 @@ export class TorchlitOverlay extends LitElement {
       transition: opacity 0.3s ease, transform 0.3s ease;
     }
 
+    .tour-center-card:focus {
+      outline: none;
+    }
+
     .tour-center-card.visible {
       opacity: 1;
       transform: translate(-50%, -50%) scale(1);
@@ -293,7 +354,7 @@ export class TorchlitOverlay extends LitElement {
       width: 48px;
       height: 48px;
       margin: 0 auto 1rem;
-      background: var(--tour-primary, var(--primary, oklch(0.65 0.17 220)));
+      background: var(--tour-primary, var(--primary, #F26122));
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -315,6 +376,12 @@ export class TorchlitOverlay extends LitElement {
   @state() private visible = false;
 
   private unsubscribe?: () => void;
+  private previouslyFocused: HTMLElement | null = null;
+  private autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastResolvedPlacement: TourPlacement = 'bottom';
+  private scrollRafId = 0;
+  private savedScrollY = 0;
+  private activeTourId: string | null = null;
 
   /* ── Lifecycle ──────────────────────────────────── */
 
@@ -324,13 +391,17 @@ export class TorchlitOverlay extends LitElement {
       this.attachService();
     }
     window.addEventListener('resize', this.handleResize);
+    window.addEventListener('scroll', this.handleScroll, true);
     window.addEventListener('keydown', this.handleKeydown);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.unsubscribe?.();
+    this.clearAutoAdvance();
+    if (this.scrollRafId) cancelAnimationFrame(this.scrollRafId);
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('scroll', this.handleScroll, true);
     window.removeEventListener('keydown', this.handleKeydown);
   }
 
@@ -339,20 +410,139 @@ export class TorchlitOverlay extends LitElement {
       this.unsubscribe?.();
       this.attachService();
     }
+
+    if (this.visible && this.snapshot) {
+      // Measure the actual tooltip and correct position for 'top' placement
+      this.adjustTooltipPosition();
+
+      // Focus the dialog container
+      this.updateComplete.then(() => {
+        const dialog = this.shadowRoot?.querySelector<HTMLElement>(
+          '.tour-tooltip, .tour-center-card',
+        );
+        dialog?.focus();
+      });
+    }
+  }
+
+  /**
+   * After rendering, measure the tooltip's actual height and correct
+   * its position for 'top' placement (the only one that depends on
+   * tooltip height). This eliminates hardcoded height estimates.
+   */
+  private adjustTooltipPosition() {
+    if (this.lastResolvedPlacement !== 'top') return;
+
+    const tooltip = this.shadowRoot?.querySelector<HTMLElement>('.tour-tooltip');
+    const targetRect = this.snapshot?.targetRect;
+    if (!tooltip || !targetRect) return;
+
+    const PADDING = this.service?.spotlightPadding ?? 10;
+    const actualHeight = tooltip.getBoundingClientRect().height;
+    const correctTop = targetRect.top - PADDING - GAP - actualHeight;
+    const clampedTop = Math.max(VIEWPORT_MARGIN, correctTop);
+
+    tooltip.style.top = `${clampedTop}px`;
   }
 
   private attachService() {
     this.unsubscribe = this.service.subscribe(snap => this.handleTourChange(snap));
   }
 
+  /* ── Auto-advance ───────────────────────────────── */
+
+  private clearAutoAdvance() {
+    if (this.autoAdvanceTimer !== null) {
+      clearTimeout(this.autoAdvanceTimer);
+      this.autoAdvanceTimer = null;
+    }
+  }
+
+  private startAutoAdvance(ms: number) {
+    this.clearAutoAdvance();
+    this.autoAdvanceTimer = setTimeout(() => {
+      this.autoAdvanceTimer = null;
+      this.service?.nextStep();
+    }, ms);
+  }
+
+  /* ── MutationObserver target resolution ─────────── */
+
+  /**
+   * Wait for a target element to appear in the DOM using a MutationObserver.
+   * Resolves as soon as `deepQuery` finds the target, or after `timeout` ms.
+   */
+  private waitForTarget(
+    targetId: string,
+    timeout = MUTATION_TIMEOUT,
+  ): Promise<Element | null> {
+    const attr = this.service?.targetAttribute ?? 'data-tour-id';
+    const selector = `[${attr}="${targetId}"]`;
+
+    // Fast path — already in the DOM
+    const existing = deepQuery(selector, document.body);
+    if (existing) return Promise.resolve(existing);
+
+    return new Promise<Element | null>(resolve => {
+      let resolved = false;
+      const observer = new MutationObserver(() => {
+        const el = deepQuery(selector, document.body);
+        if (el) {
+          resolved = true;
+          observer.disconnect();
+          resolve(el);
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      setTimeout(() => {
+        if (!resolved) {
+          observer.disconnect();
+          resolve(deepQuery(selector, document.body));
+        }
+      }, timeout);
+    });
+  }
+
   /* ── Tour state handler ─────────────────────────── */
 
   private async handleTourChange(snapshot: TourSnapshot | null) {
+    this.clearAutoAdvance();
+
     if (!snapshot) {
-      // Tour ended — fade out
+      // Tour ended — fade out, restore focus, and restore scroll
+      const endingTourId = this.activeTourId;
       this.visible = false;
-      setTimeout(() => { this.snapshot = null; }, 300);
+      this.activeTourId = null;
+      setTimeout(() => {
+        this.snapshot = null;
+        if (this.previouslyFocused) {
+          this.previouslyFocused.focus();
+          this.previouslyFocused = null;
+        }
+        // Scroll restore
+        const tour = endingTourId ? this.service?.getTour(endingTourId) : null;
+        const scrollMode = tour?.onEndScroll ?? 'restore';
+        if (scrollMode === 'restore') {
+          window.scrollTo({ top: this.savedScrollY, behavior: 'smooth' });
+        } else if (scrollMode === 'top') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 300);
       return;
+    }
+
+    // Save the element that had focus and scroll position before the tour started
+    if (!this.snapshot) {
+      if (document.activeElement instanceof HTMLElement) {
+        this.previouslyFocused = document.activeElement;
+      }
+      this.savedScrollY = window.scrollY;
+      this.activeTourId = snapshot.tourId;
     }
 
     // Run beforeShow hook if present
@@ -371,31 +561,80 @@ export class TorchlitOverlay extends LitElement {
         bubbles: true,
         composed: true,
       }));
-      // Give the view transition time to render, then re-resolve the target
-      await new Promise(r => setTimeout(r, 350));
+    }
+
+    // Wait for the target element to appear (handles lazy rendering / route transitions)
+    if (snapshot.step.target && snapshot.step.target !== '_none_') {
+      await this.waitForTarget(snapshot.step.target);
       this.snapshot = this.service.getSnapshot();
     } else {
       this.snapshot = snapshot;
     }
 
-    this.scrollTargetIntoView();
-    requestAnimationFrame(() => { this.visible = true; });
+    // Scroll into view if needed, then show
+    if (this.snapshot?.targetElement) {
+      const rect = this.snapshot.targetElement.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const isTall = rect.height > vh * 0.6;
+      // For tall targets, only require the top to be visible (user can scroll further).
+      // For normal targets, require the whole element in view.
+      const inView = isTall
+        ? rect.top >= 0 && rect.top < vh * 0.5
+        : rect.top >= 0 && rect.bottom <= vh && rect.left >= 0 && rect.right <= window.innerWidth;
+
+      if (!inView) {
+        await this.scrollAndSettle(this.snapshot.targetElement);
+        // Recalculate rect at the post-scroll position
+        this.snapshot = this.service.getSnapshot();
+      }
+    }
+
+    requestAnimationFrame(() => {
+      this.visible = true;
+      // Start auto-advance timer if configured
+      if (this.snapshot?.step.autoAdvance) {
+        this.startAutoAdvance(this.snapshot.step.autoAdvance);
+      }
+    });
   }
 
-  private scrollTargetIntoView() {
-    if (this.snapshot?.targetElement) {
-      this.snapshot.targetElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'nearest',
-      });
-      // Recalculate rect after scroll settles
-      setTimeout(() => {
-        if (this.service) {
-          this.snapshot = this.service.getSnapshot();
+  /**
+   * Scroll an element into view and wait for the scroll to finish.
+   * For tall elements (> 60% of viewport), scrolls to the top so the user
+   * sees the start of the element plus the tooltip. For smaller elements,
+   * centers them in the viewport.
+   */
+  private scrollAndSettle(el: Element): Promise<void> {
+    const vh = window.innerHeight;
+    const isTall = el.getBoundingClientRect().height > vh * 0.6;
+    el.scrollIntoView({ behavior: 'smooth', block: isTall ? 'start' : 'center', inline: 'nearest' });
+
+    return new Promise(resolve => {
+      let lastTop = el.getBoundingClientRect().top;
+      let stableFrames = 0;
+      let rafId = 0;
+      const maxWait = setTimeout(() => { cancelAnimationFrame(rafId); resolve(); }, 1500);
+
+      const poll = () => {
+        const top = el.getBoundingClientRect().top;
+        if (Math.abs(top - lastTop) < 1) {
+          stableFrames++;
+        } else {
+          stableFrames = 0;
         }
-      }, 400);
-    }
+        lastTop = top;
+
+        // Consider settled after 3 consecutive stable frames (~50ms)
+        if (stableFrames >= 3) {
+          clearTimeout(maxWait);
+          resolve();
+        } else {
+          rafId = requestAnimationFrame(poll);
+        }
+      };
+
+      rafId = requestAnimationFrame(poll);
+    });
   }
 
   /* ── Event handlers ─────────────────────────────── */
@@ -406,40 +645,135 @@ export class TorchlitOverlay extends LitElement {
     }
   };
 
+  /** Throttled scroll handler — refreshes the snapshot once per frame. */
+  private handleScroll = () => {
+    if (!this.snapshot || !this.service || this.scrollRafId) return;
+    this.scrollRafId = requestAnimationFrame(() => {
+      this.scrollRafId = 0;
+      if (this.snapshot && this.service) {
+        this.snapshot = this.service.getSnapshot();
+      }
+    });
+  };
+
   private handleKeydown = (e: KeyboardEvent) => {
     if (!this.snapshot || !this.service) return;
+
     if (e.key === 'Escape') {
       e.preventDefault();
+      this.clearAutoAdvance();
       this.service.skipTour();
     } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
       e.preventDefault();
+      this.clearAutoAdvance();
       this.service.nextStep();
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
+      this.clearAutoAdvance();
       this.service.prevStep();
+    } else if (e.key === 'Tab') {
+      // Focus trap — keep Tab within the tooltip
+      this.trapFocus(e);
     }
   };
 
   private handleBackdropClick = () => {
+    this.clearAutoAdvance();
     this.service?.skipTour();
   };
+
+  /* ── Focus trap ─────────────────────────────────── */
+
+  private trapFocus(e: KeyboardEvent) {
+    const container = this.shadowRoot?.querySelector<HTMLElement>(
+      '.tour-tooltip, .tour-center-card',
+    );
+    if (!container) return;
+
+    const focusable = container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (e.shiftKey) {
+      if (this.shadowRoot?.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (this.shadowRoot?.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  /* ── Smart auto-positioning ─────────────────────── */
+
+  /**
+   * Determine the best placement for the tooltip, flipping when the preferred
+   * placement would clip the viewport. Tries: preferred → opposite → perpendicular.
+   */
+  private bestPlacement(rect: DOMRect, preferred: TourPlacement): TourPlacement {
+    const PADDING = this.service?.spotlightPadding ?? 10;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const fits = (p: TourPlacement): boolean => {
+      switch (p) {
+        case 'bottom':
+          return rect.bottom + PADDING + GAP + TOOLTIP_H_MAX < vh;
+        case 'top':
+          return rect.top - PADDING - GAP - TOOLTIP_H_MAX > 0;
+        case 'right':
+          return rect.right + PADDING + GAP + TOOLTIP_W < vw;
+        case 'left':
+          return rect.left - PADDING - GAP - TOOLTIP_W > 0;
+      }
+    };
+
+    const opposite: Record<TourPlacement, TourPlacement> = {
+      top: 'bottom', bottom: 'top', left: 'right', right: 'left',
+    };
+
+    const perpendicular: Record<TourPlacement, [TourPlacement, TourPlacement]> = {
+      top: ['left', 'right'], bottom: ['left', 'right'],
+      left: ['top', 'bottom'], right: ['top', 'bottom'],
+    };
+
+    if (fits(preferred)) return preferred;
+    if (fits(opposite[preferred])) return opposite[preferred];
+    for (const p of perpendicular[preferred]) {
+      if (fits(p)) return p;
+    }
+    // Nothing fits perfectly — keep preferred, clampToViewport will save us
+    return preferred;
+  }
 
   /* ── Tooltip positioning ────────────────────────── */
 
   private getTooltipPosition(rect: DOMRect, placement: TourPlacement): { top: number; left: number } {
     const PADDING = this.service?.spotlightPadding ?? 10;
-    const GAP = 16;
-    const TOOLTIP_W = 320;
+    const vh = window.innerHeight;
+
+    // For tall targets, use the visible center rather than the absolute center.
+    // This keeps the tooltip near the portion of the target the user can actually see.
+    const visibleTop = Math.max(0, rect.top);
+    const visibleBottom = Math.min(vh, rect.bottom);
+    const visibleCenterY = (visibleTop + visibleBottom) / 2;
 
     switch (placement) {
       case 'right':
         return {
-          top: rect.top + rect.height / 2 - 80,
+          top: visibleCenterY - 80,
           left: rect.right + PADDING + GAP,
         };
       case 'left':
         return {
-          top: rect.top + rect.height / 2 - 80,
+          top: visibleCenterY - 80,
           left: rect.left - PADDING - GAP - TOOLTIP_W,
         };
       case 'bottom':
@@ -448,8 +782,9 @@ export class TorchlitOverlay extends LitElement {
           left: rect.left + rect.width / 2 - TOOLTIP_W / 2,
         };
       case 'top':
+        // Initial estimate — corrected after render in adjustTooltipPosition()
         return {
-          top: rect.top - PADDING - GAP - 180,
+          top: rect.top - PADDING - GAP,
           left: rect.left + rect.width / 2 - TOOLTIP_W / 2,
         };
       default:
@@ -458,11 +793,9 @@ export class TorchlitOverlay extends LitElement {
   }
 
   private clampToViewport(pos: { top: number; left: number }): { top: number; left: number } {
-    const MARGIN = 16;
-    const TOOLTIP_W = 320;
     return {
-      top: Math.max(MARGIN, Math.min(pos.top, window.innerHeight - 250)),
-      left: Math.max(MARGIN, Math.min(pos.left, window.innerWidth - TOOLTIP_W - MARGIN)),
+      top: Math.max(VIEWPORT_MARGIN, Math.min(pos.top, window.innerHeight - TOOLTIP_H_MAX - VIEWPORT_MARGIN)),
+      left: Math.max(VIEWPORT_MARGIN, Math.min(pos.left, window.innerWidth - TOOLTIP_W - VIEWPORT_MARGIN)),
     };
   }
 
@@ -474,6 +807,35 @@ export class TorchlitOverlay extends LitElement {
       case 'top':   return 'arrow-top';
       default:      return 'arrow-bottom';
     }
+  }
+
+  /**
+   * Compute the arrow's offset along the tooltip edge so it points at
+   * the center of the target element, clamped to stay within the tooltip.
+   */
+  private getArrowOffset(
+    targetRect: DOMRect,
+    tooltipPos: { top: number; left: number },
+    placement: TourPlacement,
+  ): string {
+    const ARROW_SIZE = 12;
+    const MIN = ARROW_SIZE + 8;
+
+    if (placement === 'top' || placement === 'bottom') {
+      // Horizontal offset
+      const targetCenterX = targetRect.left + targetRect.width / 2;
+      const offset = targetCenterX - tooltipPos.left;
+      const clamped = Math.max(MIN, Math.min(offset, TOOLTIP_W - MIN));
+      return `${clamped}px`;
+    }
+
+    // Vertical offset (left / right placement) — use visible center for tall targets
+    const visibleTop = Math.max(0, targetRect.top);
+    const visibleBottom = Math.min(window.innerHeight, targetRect.bottom);
+    const targetCenterY = (visibleTop + visibleBottom) / 2;
+    const offset = targetCenterY - tooltipPos.top;
+    const clamped = Math.max(MIN, Math.min(offset, TOOLTIP_H_MAX - MIN));
+    return `${clamped}px`;
   }
 
   /* ── Render ─────────────────────────────────────── */
@@ -489,19 +851,37 @@ export class TorchlitOverlay extends LitElement {
     }
 
     const PADDING = this.service?.spotlightPadding ?? 10;
+
+    // Per-step spotlight border-radius override
+    const spotlightRadius = step.spotlightBorderRadius
+      ? `border-radius: ${step.spotlightBorderRadius};`
+      : '';
+
     const spotlightStyle = `
       top: ${targetRect.top - PADDING}px;
       left: ${targetRect.left - PADDING}px;
       width: ${targetRect.width + PADDING * 2}px;
       height: ${targetRect.height + PADDING * 2}px;
+      ${spotlightRadius}
     `;
 
+    // Smart placement — flip if the preferred side clips
+    const resolved = this.bestPlacement(targetRect, step.placement);
+    this.lastResolvedPlacement = resolved;
+
     const tooltipPos = this.clampToViewport(
-      this.getTooltipPosition(targetRect, step.placement),
+      this.getTooltipPosition(targetRect, resolved),
     );
+    const arrowOffset = this.getArrowOffset(targetRect, tooltipPos, resolved);
     const tooltipStyle = `top: ${tooltipPos.top}px; left: ${tooltipPos.left}px;`;
+    const stepLabel = `Step ${stepIndex + 1} of ${totalSteps}: ${step.title}`;
 
     return html`
+      <!-- Screen reader announcement -->
+      <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        ${stepLabel}
+      </div>
+
       <div
         class="tour-backdrop ${this.visible ? 'visible' : ''}"
         part="backdrop"
@@ -510,10 +890,19 @@ export class TorchlitOverlay extends LitElement {
 
       <div class="tour-spotlight" part="spotlight" style=${spotlightStyle}></div>
 
-      <div class="tour-tooltip ${this.visible ? 'visible' : ''}" part="tooltip" style=${tooltipStyle}>
-        <div class="tour-arrow ${this.getArrowClass(step.placement)}"></div>
+      <div
+        class="tour-tooltip ${this.visible ? 'visible' : ''}"
+        part="tooltip"
+        style=${tooltipStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-label="${step.title}"
+        aria-describedby="tour-desc"
+        tabindex="-1"
+      >
+        <div class="tour-arrow ${this.getArrowClass(resolved)}" style="--arrow-offset: ${arrowOffset}"></div>
 
-        <div class="tour-step-badge">
+        <div class="tour-step-badge" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
@@ -523,62 +912,100 @@ export class TorchlitOverlay extends LitElement {
         </div>
 
         <h3 class="tour-title">${step.title}</h3>
-        <p class="tour-message">${step.message}</p>
+        <div class="tour-message" id="tour-desc">${step.message}</div>
 
         ${this.renderProgressDots(stepIndex, totalSteps)}
 
         <div class="tour-footer">
-          <button class="tour-skip" @click=${() => this.service.skipTour()}>
+          <button
+            class="tour-skip"
+            aria-label="Skip tour"
+            @click=${() => { this.clearAutoAdvance(); this.service.skipTour(); }}
+          >
             Skip tour
           </button>
           <div class="tour-nav">
             ${stepIndex > 0 ? html`
-              <button class="tour-btn" @click=${() => this.service.prevStep()}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button
+                class="tour-btn"
+                aria-label="Go to previous step"
+                @click=${() => { this.clearAutoAdvance(); this.service.prevStep(); }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
                 Back
               </button>
-            ` : ''}
-            <button class="tour-btn primary" @click=${() => this.service.nextStep()}>
+            ` : nothing}
+            <button
+              class="tour-btn primary"
+              aria-label="${stepIndex === totalSteps - 1 ? 'Finish tour' : 'Go to next step'}"
+              @click=${() => { this.clearAutoAdvance(); this.service.nextStep(); }}
+            >
               ${stepIndex === totalSteps - 1 ? 'Finish' : 'Next'}
               ${stepIndex < totalSteps - 1 ? html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               ` : html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               `}
             </button>
           </div>
         </div>
+
+        ${step.autoAdvance ? keyed(stepIndex, html`
+          <div
+            class="tour-auto-progress"
+            style="animation: autoAdvanceFill ${step.autoAdvance}ms linear forwards;"
+            aria-hidden="true"
+          ></div>
+        `) : nothing}
       </div>
     `;
   }
 
   private renderProgressDots(current: number, total: number) {
-    if (total <= 1) return html``;
+    if (total <= 1) return nothing;
     return html`
-      <div class="tour-progress">
+      <div class="tour-progress" role="group" aria-label="Tour progress">
         ${Array.from({ length: total }, (_, i) => html`
-          <div class="tour-dot ${i === current ? 'active' : i < current ? 'completed' : ''}"></div>
+          <div
+            class="tour-dot ${i === current ? 'active' : i < current ? 'completed' : ''}"
+            role="presentation"
+          ></div>
         `)}
       </div>
     `;
   }
 
-  private renderCenteredStep(step: { title: string; message: string }, stepIndex: number, totalSteps: number) {
+  private renderCenteredStep(step: TourStep, stepIndex: number, totalSteps: number) {
+    const stepLabel = `Step ${stepIndex + 1} of ${totalSteps}: ${step.title}`;
+
     return html`
+      <!-- Screen reader announcement -->
+      <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        ${stepLabel}
+      </div>
+
       <div
         class="tour-backdrop ${this.visible ? 'visible' : ''}"
         part="backdrop"
         @click=${this.handleBackdropClick}
       ></div>
 
-      <div class="tour-center-card ${this.visible ? 'visible' : ''}" part="center-card">
-        <div class="tour-center-icon">
+      <div
+        class="tour-center-card ${this.visible ? 'visible' : ''}"
+        part="center-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label="${step.title}"
+        aria-describedby="tour-desc-center"
+        tabindex="-1"
+      >
+        <div class="tour-center-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
@@ -587,28 +1014,48 @@ export class TorchlitOverlay extends LitElement {
         </div>
 
         <h3 class="tour-title">${step.title}</h3>
-        <p class="tour-message">${step.message}</p>
+        <div class="tour-message" id="tour-desc-center">${step.message}</div>
 
         ${this.renderProgressDots(stepIndex, totalSteps)}
 
         <div class="tour-footer">
-          <button class="tour-skip" @click=${() => this.service.skipTour()}>
+          <button
+            class="tour-skip"
+            aria-label="Skip tour"
+            @click=${() => { this.clearAutoAdvance(); this.service.skipTour(); }}
+          >
             Skip tour
           </button>
           <div class="tour-nav">
             ${stepIndex > 0 ? html`
-              <button class="tour-btn" @click=${() => this.service.prevStep()}>Back</button>
-            ` : ''}
-            <button class="tour-btn primary" @click=${() => this.service.nextStep()}>
+              <button
+                class="tour-btn"
+                aria-label="Go to previous step"
+                @click=${() => { this.clearAutoAdvance(); this.service.prevStep(); }}
+              >Back</button>
+            ` : nothing}
+            <button
+              class="tour-btn primary"
+              aria-label="${stepIndex === totalSteps - 1 ? 'Start the tour' : 'Go to next step'}"
+              @click=${() => { this.clearAutoAdvance(); this.service.nextStep(); }}
+            >
               ${stepIndex === totalSteps - 1 ? "Let's go!" : 'Next'}
               ${stepIndex < totalSteps - 1 ? html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
-              ` : ''}
+              ` : nothing}
             </button>
           </div>
         </div>
+
+        ${step.autoAdvance ? keyed(stepIndex, html`
+          <div
+            class="tour-auto-progress"
+            style="animation: autoAdvanceFill ${step.autoAdvance}ms linear forwards;"
+            aria-hidden="true"
+          ></div>
+        `) : nothing}
       </div>
     `;
   }

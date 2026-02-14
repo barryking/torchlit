@@ -1161,7 +1161,6 @@
       line-height: 1.5;
     }
   </style>
-  <script type="module" crossorigin src="/torchlit/assets/index-P5ltFSDq.js"></script>
 </head>
 <body>
   <div class="app">
@@ -2173,5 +2172,724 @@ torchlit-overlay::part(spotlight) {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
 
   <!-- ── Application script ────────────────────────────────────── -->
+  <script type="module">
+    import { createTourService, TorchlitOverlay } from '../src/index.ts';
+    import { html as litHtml } from 'lit';
+
+    // Ensure the custom element registration survives tree-shaking
+    if (!customElements.get('torchlit-overlay')) {
+      customElements.define('torchlit-overlay', TorchlitOverlay);
+    }
+
+    // ── Create a tour service instance ──────────────────────────────
+
+    const tours = createTourService({ storageKey: 'torchlit-docs' });
+
+    // ── Wire the overlay to the service ─────────────────────────────
+
+    const overlay = document.querySelector('torchlit-overlay');
+    overlay.service = tours;
+
+    // ── Page navigation ─────────────────────────────────────────────
+
+    function switchPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const page = document.getElementById(`page-${name}`);
+      const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
+      if (page) page.classList.add('active');
+      if (nav) nav.classList.add('active');
+    }
+
+    // Make switchPage available globally for inline onclick handlers
+    window.switchPage = switchPage;
+
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchPage(btn.dataset.page);
+      });
+    });
+
+    // Handle route changes from tour steps
+    overlay.addEventListener('tour-route-change', (e) => {
+      switchPage(e.detail.route);
+    });
+
+    // ── Define tours ────────────────────────────────────────────────
+
+    tours.register([
+      // ── 1. Onboarding — auto-starts on first visit ────────────────
+      {
+        id: 'onboarding',
+        name: 'Welcome Tour',
+        trigger: 'first-visit',
+        steps: [
+          {
+            target: '_none_',
+            title: 'Welcome to the Torchlit Docs!',
+            message:
+              'This site is both the documentation and a live demo of Torchlit. ' +
+              'Let\'s take a quick tour. Use arrow keys or click Next.',
+            placement: 'bottom',
+          },
+          {
+            target: 'nav-overview',
+            title: 'Overview',
+            message:
+              'The docs home page with install instructions, key stats, ' +
+              'and a quick-start snippet.',
+            placement: 'right',
+          },
+          {
+            target: 'overview-stats',
+            title: 'At a Glance',
+            message:
+              'Key metrics about Torchlit — bundle size, dependencies, ' +
+              'and framework support. The spotlight highlights exactly what you need.',
+            placement: 'bottom',
+          },
+          {
+            target: 'overview-features',
+            title: 'Key Features',
+            message:
+              'Shadow DOM traversal, framework-agnostic design, CSS theming, ' +
+              'and a tiny bundle. These cards detail what makes Torchlit different.',
+            placement: 'top',
+          },
+          {
+            target: 'nav-guide',
+            title: 'Getting Started',
+            message:
+              'The step-by-step setup guide — install, configure, and launch your first tour.',
+            placement: 'right',
+          },
+          {
+            target: 'guide-demo',
+            title: 'Interactive Examples',
+            message:
+              'The spotlight followed you to a new page! ' +
+              'Try these live demos — each one shows a different Torchlit feature with its code.',
+            placement: 'top',
+            beforeShow: () => switchPage('api'),
+          },
+          {
+            target: 'header-help',
+            title: 'Contextual Help',
+            message:
+              'Click the ? button anytime for page-specific help. ' +
+              'Each section has its own help tour. You\'re all set!',
+            placement: 'bottom',
+            beforeShow: () => switchPage('overview'),
+          },
+        ],
+        onComplete: () => console.log('[docs] Onboarding complete!'),
+        onSkip: () => console.log('[docs] Onboarding skipped'),
+      },
+
+      // ── 2. Contextual help tours (manual) ─────────────────────────
+      {
+        id: 'overview-help',
+        name: 'Overview Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'overview-stats',
+            title: 'Quick Stats',
+            message:
+              'Key metrics about Torchlit at a glance — bundle size, ' +
+              'peer dependency, and framework support.',
+            placement: 'bottom',
+          },
+          {
+            target: 'overview-features',
+            title: 'Feature Highlights',
+            message:
+              'Each card describes a core feature. Hover them for ' +
+              'a subtle lift effect — all CSS, no JavaScript.',
+            placement: 'top',
+          },
+          {
+            target: 'header-theme',
+            title: 'Theme Toggle',
+            message:
+              'Switch between light and dark mode. The tour overlay adapts ' +
+              'automatically via CSS custom properties — zero config.',
+            placement: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'guide-help',
+        name: 'Getting Started Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'guide-search',
+            title: 'Search Docs',
+            message: 'Filter the guide steps by keyword — type to narrow down what you need.',
+            placement: 'bottom',
+          },
+          {
+            target: 'nav-styling',
+            title: 'See It In Action',
+            message:
+              'Head to the Styling page for interactive examples you can run live, ' +
+              'plus a theme playground and CSS custom property reference.',
+            placement: 'right',
+          },
+        ],
+      },
+      {
+        id: 'api-help',
+        name: 'API Reference Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'api-search',
+            title: 'Jump to Symbol',
+            message:
+              'Type a method name, property, or type to jump straight to it — ' +
+              'works like Cmd+K. Try "nextStep" or "autoAdvance".',
+            placement: 'bottom',
+          },
+          {
+            target: 'api-service',
+            title: 'Quick Navigation',
+            message:
+              'Use these pills to jump to any section: TourService, Overlay, Types, or deepQuery.',
+            placement: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'styling-help',
+        name: 'Styling Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'guide-demo',
+            title: 'Interactive Examples',
+            message:
+              'Run live demos right here and click View Code to see the configuration behind each one.',
+            placement: 'top',
+          },
+          {
+            target: 'styling-search',
+            title: 'Search',
+            message:
+              'Jump to any CSS property or section — start typing to filter.',
+            placement: 'bottom',
+          },
+          {
+            target: 'styling-props',
+            title: 'CSS Custom Properties',
+            message:
+              'All the CSS variables you can set — each has a --tour-* prefix, ' +
+              'a generic fallback, and a sensible default.',
+            placement: 'top',
+          },
+          {
+            target: 'styling-dark',
+            title: 'Dark Mode',
+            message:
+              'Override the fallback tokens in a .dark class or prefers-color-scheme ' +
+              'media query — zero JS needed.',
+            placement: 'top',
+          },
+          {
+            target: 'styling-parts',
+            title: '::part() Selectors',
+            message:
+              'For deeper customization beyond colors — change shadows, borders, ' +
+              'or add glow effects to the spotlight.',
+            placement: 'top',
+          },
+        ],
+      },
+    ]);
+
+    // ── Map pages to help tours ─────────────────────────────────────
+
+    const helpMap = {
+      overview: 'overview-help',
+      guide: 'guide-help',
+      api: 'api-help',
+      styling: 'styling-help',
+    };
+
+    // ── Button handlers ─────────────────────────────────────────────
+
+    // Help — start contextual tour for current page
+    document.getElementById('btn-help').addEventListener('click', () => {
+      const activePage = document.querySelector('.nav-item.active')?.dataset.page || 'overview';
+      const tourId = helpMap[activePage];
+      if (tourId) tours.start(tourId);
+    });
+
+    // Theme toggle
+    document.getElementById('btn-theme').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+
+    // Reset — clear tour state and reload to re-trigger onboarding
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      tours.resetAll();
+      location.reload();
+    });
+
+    // ── Guide search (client-side filter) ─────────────────────────
+
+    const guideSearch = document.querySelector('[data-tour-id="guide-search"] input');
+    if (guideSearch) {
+      guideSearch.addEventListener('input', (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        const guidePage = document.getElementById('page-guide');
+        if (!guidePage) return;
+
+        const sections = guidePage.querySelectorAll('.step, .doc-section');
+        sections.forEach(section => {
+          if (!query) { section.style.display = ''; return; }
+          const text = section.textContent?.toLowerCase() ?? '';
+          section.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    // ── API search (jump-to method / property / type) ─────────────
+
+    const apiSearchInput = document.getElementById('api-search-input');
+    const apiSearchResults = document.getElementById('api-search-results');
+
+    if (apiSearchInput && apiSearchResults) {
+      const apiPage = document.getElementById('page-api');
+      const searchIndex = [];
+
+      if (apiPage) {
+        // Index table rows
+        apiPage.querySelectorAll('.ref-table tbody tr').forEach(tr => {
+          const codeEl = tr.querySelector('code');
+          if (!codeEl) return;
+          const label = codeEl.textContent ?? '';
+          let context = '';
+          let prev = tr.closest('table')?.previousElementSibling;
+          while (prev) {
+            if (prev.classList?.contains('subsection-title') || prev.classList?.contains('section-title')) {
+              context = prev.textContent ?? '';
+              break;
+            }
+            prev = prev.previousElementSibling;
+          }
+          searchIndex.push({ label, context, element: tr, text: (label + ' ' + (tr.textContent ?? '')).toLowerCase() });
+        });
+
+        // Index subsection headings
+        apiPage.querySelectorAll('.subsection-title').forEach(h3 => {
+          const label = h3.textContent ?? '';
+          searchIndex.push({ label, context: 'Section', element: h3, text: label.toLowerCase() });
+        });
+      }
+
+      let activeIdx = -1;
+
+      function getMatches(q) {
+        return searchIndex
+          .filter(item => item.text.includes(q))
+          .sort((a, b) => {
+            const aPrefix = a.label.toLowerCase().startsWith(q) ? 0 : 1;
+            const bPrefix = b.label.toLowerCase().startsWith(q) ? 0 : 1;
+            return aPrefix - bPrefix || a.label.localeCompare(b.label);
+          })
+          .slice(0, 8);
+      }
+
+      function renderResults(matches) {
+        apiSearchResults.replaceChildren();
+        if (matches.length === 0) {
+          apiSearchResults.classList.remove('open');
+          activeIdx = -1;
+          return;
+        }
+        activeIdx = 0;
+        matches.forEach((m, i) => {
+          const row = document.createElement('div');
+          row.className = 'api-search-result' + (i === 0 ? ' active' : '');
+          row.dataset.idx = String(i);
+          const code = document.createElement('code');
+          code.textContent = m.label;
+          row.appendChild(code);
+          if (m.context) {
+            const ctx = document.createElement('span');
+            ctx.className = 'result-context';
+            ctx.textContent = m.context;
+            row.appendChild(ctx);
+          }
+          row.addEventListener('click', () => jumpTo(m));
+          apiSearchResults.appendChild(row);
+        });
+        apiSearchResults.classList.add('open');
+      }
+
+      function jumpTo(match) {
+        apiSearchResults.classList.remove('open');
+        apiSearchInput.value = '';
+        match.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        match.element.classList.remove('highlight-flash');
+        void match.element.offsetWidth;
+        match.element.classList.add('highlight-flash');
+        setTimeout(() => match.element.classList.remove('highlight-flash'), 1600);
+      }
+
+      apiSearchInput.addEventListener('input', () => {
+        const q = apiSearchInput.value.trim().toLowerCase();
+        if (!q) { renderResults([]); return; }
+        renderResults(getMatches(q));
+      });
+
+      apiSearchInput.addEventListener('keydown', (e) => {
+        const items = apiSearchResults.querySelectorAll('.api-search-result');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          items[activeIdx]?.classList.remove('active');
+          activeIdx = (activeIdx + 1) % items.length;
+          items[activeIdx]?.classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          items[activeIdx]?.classList.remove('active');
+          activeIdx = (activeIdx - 1 + items.length) % items.length;
+          items[activeIdx]?.classList.add('active');
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const q = apiSearchInput.value.trim().toLowerCase();
+          const matches = getMatches(q);
+          if (matches[activeIdx]) jumpTo(matches[activeIdx]);
+        } else if (e.key === 'Escape') {
+          renderResults([]);
+          apiSearchInput.blur();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-tour-id="api-search"]')) {
+          apiSearchResults.classList.remove('open');
+        }
+      });
+    }
+
+    // ── Theme playground ──────────────────────────────────────────────
+
+    (function initPlayground() {
+      const preview = document.getElementById('pg-preview');
+      const codeOutput = document.getElementById('pg-code-output');
+      const codeWrap = document.getElementById('pg-code');
+      const codeToggle = document.getElementById('pg-code-toggle');
+      const resetBtn = document.getElementById('pg-reset');
+      if (!preview) return;
+
+      const varMap = {
+        'primary':          { css: '--tour-primary',            pg: '--pg-primary' },
+        'primary-fg':       { css: '--tour-primary-foreground', pg: '--pg-primary-fg' },
+        'card':             { css: '--tour-card',               pg: '--pg-card' },
+        'foreground':       { css: '--tour-foreground',         pg: '--pg-foreground' },
+        'border':           { css: '--tour-border',             pg: '--pg-border' },
+        'muted':            { css: '--tour-muted',              pg: '--pg-muted' },
+        'muted-fg':         { css: '--tour-muted-foreground',   pg: '--pg-muted-fg' },
+        'background':       { css: '--tour-background',         pg: '--pg-background' },
+        'tooltip-radius':   { css: '--tour-tooltip-radius',     pg: '--pg-tooltip-radius' },
+        'btn-radius':       { css: '--tour-btn-radius',         pg: '--pg-btn-radius' },
+      };
+
+      const defaults = {
+        'primary': '#F26122', 'primary-fg': '#ffffff', 'card': '#ffffff',
+        'foreground': '#1a1a1a', 'border': '#e5e5e5', 'muted': '#e5e5e5',
+        'muted-fg': '#737373', 'background': '#ffffff',
+        'tooltip-radius': '0.75rem', 'btn-radius': '0.5rem',
+      };
+
+      const state = { ...defaults };
+
+      function applyToPreview() {
+        Object.keys(state).forEach(key => {
+          const mapping = varMap[key];
+          if (mapping) preview.style.setProperty(mapping.pg, state[key]);
+        });
+      }
+
+      function generateCSS() {
+        const changed = Object.keys(state).filter(k => state[k] !== defaults[k]);
+        if (changed.length === 0) return '/* No changes — using defaults */';
+        const lines = changed.map(k => `  ${varMap[k].css}: ${state[k]};`);
+        return `torchlit-overlay {\n${lines.join('\n')}\n}`;
+      }
+
+      function updateCodeOutput() {
+        codeOutput.textContent = generateCSS();
+        if (typeof Prism !== 'undefined') Prism.highlightElement(codeOutput);
+      }
+
+      // Sync color input <-> text input
+      function syncInputs(key, value) {
+        state[key] = value;
+        const colorInput = document.querySelector(`[data-pg="${key}"]`);
+        const textInput = document.querySelector(`[data-pg-text="${key}"]`);
+        if (colorInput && colorInput.value !== value) colorInput.value = value;
+        if (textInput && textInput.value !== value) textInput.value = value;
+        applyToPreview();
+        updateCodeOutput();
+      }
+
+      // Color pickers
+      document.querySelectorAll('[data-pg]').forEach(input => {
+        input.addEventListener('input', () => syncInputs(input.dataset.pg, input.value));
+      });
+
+      // Text inputs
+      document.querySelectorAll('[data-pg-text]').forEach(input => {
+        input.addEventListener('input', () => {
+          const key = input.dataset.pgText;
+          state[key] = input.value;
+          const colorInput = document.querySelector(`[data-pg="${key}"]`);
+          if (colorInput) {
+            // Only sync to color picker if it's a valid hex
+            if (/^#[0-9a-f]{6}$/i.test(input.value)) colorInput.value = input.value;
+          }
+          applyToPreview();
+          updateCodeOutput();
+        });
+      });
+
+      // Code toggle — copy to clipboard
+      codeToggle.addEventListener('click', () => {
+        const css = generateCSS();
+        navigator.clipboard.writeText(css).then(() => {
+          const orig = codeToggle.innerHTML;
+          codeToggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+          setTimeout(() => { codeToggle.innerHTML = orig; }, 1500);
+        });
+        // Also toggle code display
+        codeWrap.classList.toggle('open');
+      });
+
+      // Reset
+      resetBtn.addEventListener('click', () => {
+        Object.keys(defaults).forEach(k => syncInputs(k, defaults[k]));
+      });
+
+      // Initial render
+      applyToPreview();
+      updateCodeOutput();
+    })();
+
+    // ── Styling search (reuses jump-to pattern) ─────────────────────
+
+    const stylingSearchInput = document.getElementById('styling-search-input');
+    const stylingSearchResults = document.getElementById('styling-search-results');
+
+    if (stylingSearchInput && stylingSearchResults) {
+      const stylingPage = document.getElementById('page-styling');
+      const stylingIndex = [];
+
+      if (stylingPage) {
+        stylingPage.querySelectorAll('.ref-table tbody tr').forEach(tr => {
+          const codeEl = tr.querySelector('code');
+          if (!codeEl) return;
+          const label = codeEl.textContent ?? '';
+          let context = '';
+          let prev = tr.closest('table')?.previousElementSibling;
+          while (prev) {
+            if (prev.classList?.contains('subsection-title') || prev.classList?.contains('section-title')) {
+              context = prev.textContent ?? '';
+              break;
+            }
+            prev = prev.previousElementSibling;
+          }
+          stylingIndex.push({ label, context, element: tr, text: (label + ' ' + (tr.textContent ?? '')).toLowerCase() });
+        });
+
+        stylingPage.querySelectorAll('.section-title').forEach(h2 => {
+          const label = h2.textContent ?? '';
+          stylingIndex.push({ label, context: 'Section', element: h2, text: label.toLowerCase() });
+        });
+      }
+
+      let stylingActiveIdx = -1;
+
+      function getStylingMatches(q) {
+        return stylingIndex
+          .filter(item => item.text.includes(q))
+          .sort((a, b) => {
+            const aPrefix = a.label.toLowerCase().startsWith(q) ? 0 : 1;
+            const bPrefix = b.label.toLowerCase().startsWith(q) ? 0 : 1;
+            return aPrefix - bPrefix || a.label.localeCompare(b.label);
+          })
+          .slice(0, 8);
+      }
+
+      function renderStylingResults(matches) {
+        stylingSearchResults.replaceChildren();
+        if (matches.length === 0) {
+          stylingSearchResults.classList.remove('open');
+          stylingActiveIdx = -1;
+          return;
+        }
+        stylingActiveIdx = 0;
+        matches.forEach((m, i) => {
+          const row = document.createElement('div');
+          row.className = 'api-search-result' + (i === 0 ? ' active' : '');
+          row.dataset.idx = String(i);
+          const code = document.createElement('code');
+          code.textContent = m.label;
+          row.appendChild(code);
+          if (m.context) {
+            const ctx = document.createElement('span');
+            ctx.className = 'result-context';
+            ctx.textContent = m.context;
+            row.appendChild(ctx);
+          }
+          row.addEventListener('click', () => jumpToStyling(m));
+          stylingSearchResults.appendChild(row);
+        });
+        stylingSearchResults.classList.add('open');
+      }
+
+      function jumpToStyling(match) {
+        stylingSearchResults.classList.remove('open');
+        stylingSearchInput.value = '';
+        match.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        match.element.classList.remove('highlight-flash');
+        void match.element.offsetWidth;
+        match.element.classList.add('highlight-flash');
+        setTimeout(() => match.element.classList.remove('highlight-flash'), 1600);
+      }
+
+      stylingSearchInput.addEventListener('input', () => {
+        const q = stylingSearchInput.value.trim().toLowerCase();
+        if (!q) { renderStylingResults([]); return; }
+        renderStylingResults(getStylingMatches(q));
+      });
+
+      stylingSearchInput.addEventListener('keydown', (e) => {
+        const items = stylingSearchResults.querySelectorAll('.api-search-result');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          items[stylingActiveIdx]?.classList.remove('active');
+          stylingActiveIdx = (stylingActiveIdx + 1) % items.length;
+          items[stylingActiveIdx]?.classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          items[stylingActiveIdx]?.classList.remove('active');
+          stylingActiveIdx = (stylingActiveIdx - 1 + items.length) % items.length;
+          items[stylingActiveIdx]?.classList.add('active');
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const q = stylingSearchInput.value.trim().toLowerCase();
+          const matches = getStylingMatches(q);
+          if (matches[stylingActiveIdx]) jumpToStyling(matches[stylingActiveIdx]);
+        } else if (e.key === 'Escape') {
+          renderStylingResults([]);
+          stylingSearchInput.blur();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-tour-id="styling-search"]')) {
+          stylingSearchResults.classList.remove('open');
+        }
+      });
+    }
+
+
+    // ── Interactive demo panel ─────────────────────────────────────
+
+    // Tab switching
+    document.querySelectorAll('.demo-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.demo-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('demo-' + tab.dataset.demo)?.classList.add('active');
+      });
+    });
+
+    // Code toggle buttons
+    document.querySelectorAll('.code-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.target);
+        if (target) {
+          const isVisible = target.classList.toggle('visible');
+          btn.querySelector('svg').style.transform = isVisible ? 'rotate(90deg)' : '';
+        }
+      });
+    });
+
+    // Register demo tours
+    tours.register([
+      {
+        id: 'demo-basic',
+        name: 'Basic Demo',
+        trigger: 'manual',
+        steps: [
+          { target: 'demo-nav', title: 'Navigation', message: 'The main navigation bar lets you move between pages.', placement: 'bottom' },
+          { target: 'demo-search', title: 'Search', message: 'Quickly find anything with the global search.', placement: 'bottom' },
+          { target: 'demo-profile', title: 'Profile', message: 'Manage your account settings here.', placement: 'bottom' },
+        ],
+      },
+      {
+        id: 'demo-rich',
+        name: 'Rich Content Demo',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'demo-editor',
+            title: 'Editor',
+            message: litHtml`Write content here. Use <strong>bold</strong>, <em>italic</em>, and <code>code</code> formatting.`,
+            placement: 'bottom',
+          },
+          {
+            target: 'demo-toolbar',
+            title: 'Toolbar',
+            message: litHtml`Shortcuts: <kbd>Ctrl+B</kbd> Bold &nbsp; <kbd>Ctrl+I</kbd> Italic &nbsp; <kbd>Ctrl+K</kbd> Link`,
+            placement: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'demo-auto',
+        name: 'Auto-Advance Demo',
+        trigger: 'manual',
+        loop: true,
+        steps: [
+          { target: 'demo-slide-1', title: 'Slide 1', message: 'This tour auto-advances every 2.5 seconds.', placement: 'bottom', autoAdvance: 2500 },
+          { target: 'demo-slide-2', title: 'Slide 2', message: 'No clicks needed — perfect for kiosk / demo modes.', placement: 'bottom', autoAdvance: 2500 },
+          { target: 'demo-slide-3', title: 'Slide 3', message: 'With loop: true, it restarts from the beginning.', placement: 'bottom', autoAdvance: 2500 },
+        ],
+      },
+      {
+        id: 'demo-shapes',
+        name: 'Shapes Demo',
+        trigger: 'manual',
+        steps: [
+          { target: 'demo-avatar', title: 'Circle', message: 'spotlightBorderRadius: "50%" gives a circular cutout.', placement: 'bottom', spotlightBorderRadius: '50%' },
+          { target: 'demo-pill', title: 'Pill', message: 'spotlightBorderRadius: "9999px" creates a pill shape.', placement: 'bottom', spotlightBorderRadius: '9999px' },
+          { target: 'demo-square', title: 'Square', message: 'spotlightBorderRadius: "0" for sharp corners.', placement: 'bottom', spotlightBorderRadius: '0' },
+        ],
+      },
+    ]);
+
+    // Wire up run buttons
+    document.getElementById('run-basic')?.addEventListener('click', () => tours.start('demo-basic'));
+    document.getElementById('run-rich')?.addEventListener('click', () => tours.start('demo-rich'));
+    document.getElementById('run-auto')?.addEventListener('click', () => tours.start('demo-auto'));
+    document.getElementById('run-shapes')?.addEventListener('click', () => tours.start('demo-shapes'));
+
+    // ── Auto-start onboarding on first visit ────────────────────────
+
+    if (tours.shouldAutoStart('onboarding')) {
+      setTimeout(() => tours.start('onboarding'), 800);
+    }
+  </script>
 </body>
 </html>

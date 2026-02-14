@@ -1,6 +1,10 @@
 <p align="center">
   <br />
-  <img src="https://em-content.zobj.net/source/apple/391/fire_1f525.png" width="80" />
+  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M40 6C38 18 30 24 28 36c-1 6 1 12 5 16-2-8 2-14 7-20-1 10 2 18 8 24 2-4 3-9 2-14 4 6 7 12 6 20 4-4 6-10 5-16C59 34 50 18 40 6z" fill="#F26122"/>
+    <path d="M40 26c-1.5 8-6 14-6 22 0 5 3 8 6 10-1-5 1-10 4-14 0 6 2 11 4 14 2-3 3-7 3-11 1 4 1 8 0 12 3-4 4-9 3-14-2-8-7-13-14-19z" fill="#FF8C59"/>
+    <path d="M38 44c-1 4 0 8 2 11 2-3 3-7 2-11z" fill="#FFC49B"/>
+  </svg>
   <br />
 </p>
 
@@ -12,14 +16,15 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/torchlit"><img src="https://img.shields.io/npm/v/torchlit?color=blue&label=npm" alt="npm version" /></a>
+  <a href="https://github.com/barryking/torchlit/actions/workflows/ci.yml"><img src="https://github.com/barryking/torchlit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/torchlit"><img src="https://img.shields.io/npm/v/torchlit?color=F26122&label=npm" alt="npm version" /></a>
   <img src="https://img.shields.io/bundlephobia/minzip/torchlit?label=gzip" alt="bundle size" />
-  <img src="https://img.shields.io/badge/lit-%5E3.0-blue" alt="lit peer" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="license" />
+  <img src="https://img.shields.io/badge/lit-%5E3.0-2F80ED" alt="lit peer" />
+  <img src="https://img.shields.io/badge/license-MIT-27AE60" alt="license" />
 </p>
 
 <p align="center">
-  <a href="https://barryking.github.io/torchlit/"><strong>Live Demo</strong></a>
+  <a href="https://barryking.github.io/torchlit/"><strong>Docs & Live Demo</strong></a>
 </p>
 
 ---
@@ -32,9 +37,11 @@ Most tour libraries break the moment your UI uses Shadow DOM. Torchlit was built
 |---|:---:|:---:|:---:|:---:|
 | Shadow DOM traversal | **Yes** | No | No | No |
 | Framework agnostic | **Yes** | Yes | Yes | React only |
-| Bundle size (gzip) | **~6 KB** | ~50 KB | ~15 KB | ~40 KB |
+| Bundle size (gzip) | **~9 KB** | ~50 KB | ~15 KB | ~40 KB |
 | Web Component | **Yes** | No | No | No |
+| Accessibility (ARIA + focus trap) | **Yes** | Partial | Partial | Yes |
 | CSS custom property theming | **Yes** | No | Partial | No |
+| Smart auto-positioning | **Yes** | Yes | No | Yes |
 | Async `beforeShow` hooks | **Yes** | Yes | No | Yes |
 | Zero runtime dependencies | **Yes** | Popper.js | No | React |
 
@@ -57,10 +64,8 @@ npm install torchlit lit
 import { createTourService } from 'torchlit';
 import 'torchlit/overlay'; // registers <torchlit-overlay>
 
-// 1. Create a service
 const tours = createTourService();
 
-// 2. Register a tour
 tours.register({
   id: 'welcome',
   name: 'Welcome',
@@ -78,26 +83,14 @@ tours.register({
       message: 'Use the sidebar to move between pages.',
       placement: 'right',
     },
-    {
-      target: 'search-bar',
-      title: 'Search',
-      message: 'Find anything instantly.',
-      placement: 'bottom',
-      beforeShow: async () => {
-        // Navigate, load data, or do any async prep work
-        await router.push('/search');
-      },
-    },
   ],
   onComplete: () => analytics.track('tour_finished'),
   onSkip: () => analytics.track('tour_skipped'),
 });
 
-// 3. Wire the overlay
 const overlay = document.querySelector('torchlit-overlay');
 overlay.service = tours;
 
-// 4. Auto-start on first visit
 if (tours.shouldAutoStart('welcome')) {
   setTimeout(() => tours.start('welcome'), 800);
 }
@@ -114,8 +107,6 @@ That's it. The spotlight finds elements even inside shadow roots.
 
 ## Tree-Shakeable Imports
 
-Import only what you need:
-
 ```typescript
 // Full library (service + overlay + types + deepQuery)
 import { createTourService, TorchlitOverlay, deepQuery } from 'torchlit';
@@ -129,227 +120,22 @@ import { TorchlitOverlay } from 'torchlit/overlay';
 
 The `torchlit/service` entry point has **zero dependencies** and can be used with any rendering layer.
 
-## API Reference
+## Features
 
-### `createTourService(config?)`
+- **Shadow DOM traversal** — finds targets inside nested shadow roots automatically
+- **Smart auto-positioning** — tooltip flips when it would clip the viewport; arrow tracks the target
+- **MutationObserver for lazy targets** — waits for elements to appear in the DOM (great for SPAs)
+- **Rich content** — step messages accept Lit `html` templates for bold, links, `<kbd>`, etc.
+- **Auto-advance / timed steps** — kiosk & demo modes with animated progress bar
+- **Looping tours** — set `loop: true` to restart from step 0 instead of completing
+- **Configurable spotlight shape** — circle, pill, or sharp corners per step
+- **Scroll tracking & restore** — repositions on scroll; restores scroll position when the tour ends
+- **Keyboard navigation** — Arrow Right / Enter (next), Arrow Left (back), Escape (skip)
+- **CSS custom property theming** — adapts to your app's design tokens, including dark mode
+- **`::part()` styling** — style `backdrop`, `spotlight`, `tooltip`, and `center-card` from the outside
+- **Accessible** — `role="dialog"`, `aria-modal`, `aria-live`, focus trap, focus restore
 
-Creates a new `TourService` instance.
-
-```typescript
-const tours = createTourService({
-  storageKey: 'my-app-tours',       // localStorage key (default: 'torchlit-state')
-  storage: sessionStorage,           // any { getItem, setItem } adapter
-  targetAttribute: 'data-tour-id',   // attribute for target lookup (default)
-  spotlightPadding: 10,              // px around spotlight cutout (default: 10)
-});
-```
-
-#### `TourConfig`
-
-| Property | Type | Default | Description |
-|---|---|---|---|
-| `storageKey` | `string` | `'torchlit-state'` | Key for persisting completed/dismissed state |
-| `storage` | `StorageAdapter` | `localStorage` | Any object with `getItem` / `setItem` |
-| `targetAttribute` | `string` | `'data-tour-id'` | The data attribute used to locate targets |
-| `spotlightPadding` | `number` | `10` | Padding in pixels around the spotlight |
-
-### `TourService`
-
-| Method | Description |
-|---|---|
-| `register(tour)` | Register a single `TourDefinition` |
-| `register(tours[])` | Register multiple tours at once |
-| `start(tourId)` | Start a tour by ID |
-| `nextStep()` | Advance to the next step |
-| `prevStep()` | Go back to the previous step |
-| `skipTour()` | Dismiss the current tour |
-| `isActive()` | Whether a tour is currently running |
-| `shouldAutoStart(tourId)` | Whether a first-visit tour should start |
-| `getTour(tourId)` | Retrieve a registered tour |
-| `getAvailableTours()` | Get all registered tours |
-| `getSnapshot()` | Get the current step snapshot (or `null`) |
-| `findTarget(targetId)` | Find a DOM element by tour target ID |
-| `subscribe(listener)` | Subscribe to state changes; returns unsubscribe fn |
-| `resetAll()` | Clear all state (useful for testing and demos) |
-
-### `TourDefinition`
-
-```typescript
-interface TourDefinition {
-  id: string;
-  name: string;
-  trigger: 'first-visit' | 'manual';
-  steps: TourStep[];
-  onComplete?: () => void;
-  onSkip?: () => void;
-}
-```
-
-### `TourStep`
-
-```typescript
-interface TourStep {
-  target: string;            // data-tour-id value, or '_none_' for centered card
-  title: string;
-  message: string;
-  placement: 'top' | 'bottom' | 'left' | 'right';
-  route?: string;            // emits 'tour-route-change' event
-  beforeShow?: () => void | Promise<void>;
-}
-```
-
-### `<torchlit-overlay>`
-
-| Property | Type | Description |
-|---|---|---|
-| `service` | `TourService` | The service instance to subscribe to (required) |
-
-| Event | Detail | Description |
-|---|---|---|
-| `tour-route-change` | `{ route: string }` | Fired when a step has a `route` property |
-
-| CSS Part | Description |
-|---|---|
-| `backdrop` | The semi-transparent overlay |
-| `spotlight` | The cutout highlight |
-| `tooltip` | The floating tooltip card |
-| `center-card` | The centered card (no-target steps) |
-
-### `deepQuery(selector, root?)`
-
-Recursively searches the DOM including shadow roots. This is the utility that powers Torchlit's Shadow DOM support, exported for standalone use.
-
-```typescript
-import { deepQuery } from 'torchlit';
-
-const el = deepQuery('[data-tour-id="my-element"]');
-// Finds the element even if it's buried inside nested shadow DOMs
-```
-
-## Theming
-
-Torchlit adapts to your app's theme via CSS custom properties. Set them on `:root` or any ancestor:
-
-```css
-:root {
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --card: #ffffff;
-  --border: #e5e5e5;
-  --foreground: #1a1a1a;
-  --muted-foreground: #737373;
-  --muted: #f5f5f5;
-  --background: #ffffff;
-  --radius-lg: 0.75rem;
-  --radius-md: 0.5rem;
-  --radius-xl: 1rem;
-}
-```
-
-For isolated theming (without affecting your app), use the `--tour-*` prefix:
-
-```css
-torchlit-overlay {
-  --tour-primary: #6366f1;
-  --tour-card: #1a1a2e;
-  --tour-foreground: #e5e5e5;
-  --tour-border: #333;
-  --tour-spotlight-radius: 1rem;
-  --tour-tooltip-radius: 0.75rem;
-  --tour-btn-radius: 0.5rem;
-}
-```
-
-### Dark Mode
-
-If your app already toggles CSS variables for dark mode, the tour overlay adapts automatically -- zero additional configuration.
-
-## Keyboard Navigation
-
-| Key | Action |
-|---|---|
-| `Arrow Right` / `Enter` | Next step |
-| `Arrow Left` | Previous step |
-| `Escape` | Skip / dismiss tour |
-
-## Advanced Patterns
-
-### Route Changes During Tours
-
-Use `beforeShow` to navigate before a step renders:
-
-```typescript
-{
-  target: 'settings-panel',
-  title: 'Settings',
-  message: 'Configure your preferences here.',
-  placement: 'right',
-  beforeShow: async () => {
-    await router.push('/settings');
-    // Wait for the route transition to complete
-    await new Promise(r => setTimeout(r, 300));
-  },
-}
-```
-
-Or use the `route` property to emit a `tour-route-change` event that your app handles:
-
-```typescript
-{ target: 'dashboard-widget', title: '...', message: '...', placement: 'top', route: 'dashboard' }
-```
-
-```javascript
-overlay.addEventListener('tour-route-change', (e) => {
-  router.push(`/${e.detail.route}`);
-});
-```
-
-### Multiple Service Instances
-
-Each call to `createTourService()` creates an independent instance. This is useful for micro-frontends:
-
-```typescript
-const appTours = createTourService({ storageKey: 'app-tours' });
-const widgetTours = createTourService({ storageKey: 'widget-tours' });
-```
-
-### Custom Storage
-
-Persist tour state to an API instead of localStorage:
-
-```typescript
-const tours = createTourService({
-  storage: {
-    getItem: (key) => fetchFromAPI(key),
-    setItem: (key, value) => postToAPI(key, value),
-  },
-});
-```
-
-### Headless Mode (Custom UI)
-
-Use the service without the built-in overlay:
-
-```typescript
-import { createTourService } from 'torchlit/service';
-
-const tours = createTourService();
-tours.register([...]);
-
-tours.subscribe((snapshot) => {
-  if (!snapshot) {
-    // Tour ended
-    hideMyCustomUI();
-    return;
-  }
-  // Render your own tooltip using snapshot.step, snapshot.targetRect, etc.
-  renderMyCustomTooltip(snapshot);
-});
-
-tours.start('onboarding');
-```
-
-## Running the Demo
+> For the full API reference, theming guide, and advanced patterns, see the **[documentation site](https://barryking.github.io/torchlit/)**.
 
 ## Project Structure
 
@@ -364,31 +150,56 @@ torchlit/
       deep-query.ts       # Shadow DOM traversal utility
   test/
     tour-service.test.ts  # Service unit tests (Vitest)
+    tour-overlay.test.ts  # Overlay positioning & feature tests
     deep-query.test.ts    # Deep query unit tests
+  site/
+    index.html            # Docs site source (builds to docs/)
   examples/
-    index.html            # Interactive demo (no build step)
+    index.html            # Example listing page
+    basic.html            # Minimal tour setup
+    multi-page.html       # Tour spanning multiple views
+    custom-theme.html     # Custom brand theme & dark mode
+    kiosk.html            # Auto-advance + looping kiosk tour
+    smart-positioning.html # Smart auto-positioning demo
+    rich-content.html     # Rich HTML content in step messages
+  docs/                   # Built output for GitHub Pages
 ```
 
-## Running the Demo
+## Running Locally
 
 ```bash
 git clone https://github.com/barryking/torchlit.git
 cd torchlit
 npm install
+```
+
+### Docs site
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:5173` to see the interactive demo with an onboarding tour, contextual help, and theme switching.
+Open `http://localhost:5173` to see the full documentation site with an onboarding tour, contextual help, API reference, and theme switching.
+
+### Examples
+
+```bash
+npm run dev:examples
+```
+
+Open `http://localhost:5173` to browse standalone examples -- basic tour, multi-page tour, custom theming, kiosk mode, and more. Each is a self-contained HTML file you can copy and adapt.
 
 ## Contributing
 
 Contributions are welcome! Please open an issue first to discuss what you'd like to change.
 
 ```bash
-npm install     # install dependencies
-npm test        # run tests
-npm run build   # build the library
-npm run dev     # start the demo dev server
+npm install          # install dependencies
+npm test             # run tests
+npm run build        # build the library
+npm run dev          # start the docs site dev server
+npm run dev:examples # start the examples dev server
+npm run build:demo   # build the docs site to docs/ for GitHub Pages
 ```
 
 ## License

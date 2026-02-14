@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torchlit — Kiosk / Auto-Advance Example</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      color: #18181b;
+    }
+    h1 { margin-bottom: 0.25rem; }
+    .subtitle { color: #71717a; margin-bottom: 1.5rem; }
+    .controls { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    button {
+      padding: 0.5rem 1rem;
+      background: #F26122;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-weight: 500;
+      font-family: inherit;
+    }
+    button:hover { background: #BF4A1A; }
+    .showcase {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+    .card strong { display: block; margin-bottom: 0.25rem; }
+    .card p { color: #6b7280; font-size: 0.875rem; line-height: 1.5; margin: 0; }
+    .hero {
+      background: linear-gradient(135deg, #F26122 0%, #FF8C59 100%);
+      color: white;
+      border-radius: 0.75rem;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .hero h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+    .hero p { margin: 0; opacity: 0.9; font-size: 0.875rem; }
+    .footer {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    code {
+      font-family: ui-monospace, monospace;
+      font-size: 0.8125rem;
+      background: #f3f4f6;
+      padding: 0.1em 0.35em;
+      border-radius: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kiosk Mode Demo</h1>
+  <p class="subtitle">
+    Every step auto-advances after a set duration. A progress bar shows time remaining.
+    Click Next/Back at any time to take manual control.
+  </p>
+
+  <div class="controls">
+    <button id="start-tour">Start Kiosk Tour</button>
+  </div>
+
+  <div class="hero" data-tour-id="hero">
+    <h2>Product Showcase</h2>
+    <p>Imagine this is a product display in a store or an expo booth.</p>
+  </div>
+
+  <div class="showcase">
+    <div class="card" data-tour-id="feature-1">
+      <strong>Feature One</strong>
+      <p>Blazing fast performance with zero configuration required.</p>
+    </div>
+    <div class="card" data-tour-id="feature-2">
+      <strong>Feature Two</strong>
+      <p>Works everywhere — any device, any browser, any framework.</p>
+    </div>
+    <div class="card" data-tour-id="feature-3">
+      <strong>Feature Three</strong>
+      <p>Beautiful out of the box with full theming support.</p>
+    </div>
+    <div class="card" data-tour-id="feature-4">
+      <strong>Feature Four</strong>
+      <p>Built for accessibility — keyboard nav, screen readers, focus management.</p>
+    </div>
+  </div>
+
+  <div class="footer" data-tour-id="cta">
+    Ready to get started? Run <code>npm install torchlit lit</code> and you're off.
+  </div>
+
+  <torchlit-overlay></torchlit-overlay>
+
+  <script type="module">
+    // In a real project: import from 'torchlit'
+    import { createTourService, TorchlitOverlay } from '../src/index.ts';
+
+    if (!customElements.get('torchlit-overlay')) {
+      customElements.define('torchlit-overlay', TorchlitOverlay);
+    }
+
+    const tours = createTourService({ storageKey: 'kiosk-example' });
+    const overlay = document.querySelector('torchlit-overlay');
+    overlay.service = tours;
+
+    tours.register({
+      id: 'kiosk',
+      name: 'Kiosk Demo',
+      trigger: 'manual',
+      loop: true,
+      steps: [
+        {
+          target: '_none_',
+          title: 'Welcome to the Kiosk',
+          message:
+            'This tour runs hands-free. Each step auto-advances after a few seconds. ' +
+            'Watch the progress bar at the bottom of the tooltip.',
+          placement: 'bottom',
+          autoAdvance: 4000,
+        },
+        {
+          target: 'hero',
+          title: 'Product Showcase',
+          message: 'The hero section grabs attention. This step advances in 3 seconds.',
+          placement: 'bottom',
+          autoAdvance: 3000,
+        },
+        {
+          target: 'feature-1',
+          title: 'Feature One',
+          message: 'Each feature card gets its own spotlight. Auto-advancing in 3s…',
+          placement: 'right',
+          autoAdvance: 3000,
+        },
+        {
+          target: 'feature-2',
+          title: 'Feature Two',
+          message: 'Cross-platform compatibility highlighted. 3 seconds to go…',
+          placement: 'left',
+          autoAdvance: 3000,
+        },
+        {
+          target: 'feature-3',
+          title: 'Feature Three',
+          message: 'Theming support showcased. Advancing shortly…',
+          placement: 'right',
+          autoAdvance: 3000,
+        },
+        {
+          target: 'feature-4',
+          title: 'Feature Four',
+          message: 'Accessibility is a first-class feature. Almost done…',
+          placement: 'left',
+          autoAdvance: 3000,
+        },
+        {
+          target: 'cta',
+          title: 'Get Started',
+          message:
+            'That\'s the full showcase! The tour will loop back to the start automatically. ' +
+            'Press Skip or Escape to exit.',
+          placement: 'top',
+          autoAdvance: 5000,
+        },
+      ],
+      onComplete: () => {
+        console.log('[kiosk] Tour complete (only reached if loop is disabled).');
+      },
+    });
+
+    document.getElementById('start-tour').addEventListener('click', () => {
+      tours.start('kiosk');
+    });
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 /**
- * Builds the examples/ demo as a standalone app for GitHub Pages.
+ * Builds the site/ docs as a standalone app for GitHub Pages.
  * Unlike the library build, this bundles Lit and the source inline
  * so the demo works without npm install.
  *
@@ -10,7 +10,7 @@ import { resolve } from 'path';
  * Output: docs/
  */
 export default defineConfig({
-  root: 'examples',
+  root: 'site',
   base: '/torchlit/',
   resolve: {
     // Ensure Vite resolves node_modules from the project root,

@@ -45,7 +45,7 @@ export class TourService {
   // Resolved config
   private readonly storageKey: string;
   private readonly storage: StorageAdapter;
-  private readonly targetAttribute: string;
+  readonly targetAttribute: string;
   readonly spotlightPadding: number;
 
   constructor(config: TourConfig = {}) {
@@ -137,13 +137,16 @@ export class TourService {
     this.notify();
   }
 
-  /** Advance to the next step, or complete the tour if on the last step. */
+  /** Advance to the next step, loop if enabled, or complete the tour. */
   nextStep(): void {
     if (!this.activeTourId) return;
     const tour = this.tours.get(this.activeTourId)!;
 
     if (this.currentStepIndex < tour.steps.length - 1) {
       this.currentStepIndex++;
+      this.notify();
+    } else if (tour.loop) {
+      this.currentStepIndex = 0;
       this.notify();
     } else {
       this.completeTour();

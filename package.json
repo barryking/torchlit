@@ -1,6 +1,6 @@
 {
   "name": "torchlit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lightweight guided-tour & onboarding library built on Lit web components. Shadow DOM aware, framework-agnostic, tiny footprint.",
   "type": "module",
   "main": "dist/index.js",
@@ -27,7 +27,8 @@
     "./dist/tour-overlay.js"
   ],
   "scripts": {
-    "dev": "vite serve examples",
+    "dev": "vite serve site",
+    "dev:examples": "vite serve examples",
     "build": "vite build && tsc --emitDeclarationOnly --outDir dist",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -51,10 +52,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/barryking/torchlit.git"
+    "url": "git+https://github.com/barryking/torchlit.git"
   },
   "homepage": "https://github.com/barryking/torchlit",
-  "bugs": "https://github.com/barryking/torchlit/issues",
+  "bugs": {
+    "url": "https://github.com/barryking/torchlit/issues"
+  },
   "peerDependencies": {
     "lit": "^3.0.0"
   },
