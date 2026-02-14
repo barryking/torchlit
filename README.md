@@ -1,10 +1,6 @@
 <p align="center">
   <br />
-  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M40 6C38 18 30 24 28 36c-1 6 1 12 5 16-2-8 2-14 7-20-1 10 2 18 8 24 2-4 3-9 2-14 4 6 7 12 6 20 4-4 6-10 5-16C59 34 50 18 40 6z" fill="#F26122"/>
-    <path d="M40 26c-1.5 8-6 14-6 22 0 5 3 8 6 10-1-5 1-10 4-14 0 6 2 11 4 14 2-3 3-7 3-11 1 4 1 8 0 12 3-4 4-9 3-14-2-8-7-13-14-19z" fill="#FF8C59"/>
-    <path d="M38 44c-1 4 0 8 2 11 2-3 3-7 2-11z" fill="#FFC49B"/>
-  </svg>
+  <img src="assets/logo.svg" width="80" height="80" alt="Torchlit logo" />
   <br />
 </p>
 
@@ -170,13 +166,13 @@ torchlit/
 ```bash
 git clone https://github.com/barryking/torchlit.git
 cd torchlit
-npm install
+pnpm install
 ```
 
 ### Docs site
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open `http://localhost:5173` to see the full documentation site with an onboarding tour, contextual help, API reference, and theme switching.
@@ -184,7 +180,7 @@ Open `http://localhost:5173` to see the full documentation site with an onboardi
 ### Examples
 
 ```bash
-npm run dev:examples
+pnpm dev:examples
 ```
 
 Open `http://localhost:5173` to browse standalone examples -- basic tour, multi-page tour, custom theming, kiosk mode, and more. Each is a self-contained HTML file you can copy and adapt.
@@ -194,12 +190,12 @@ Open `http://localhost:5173` to browse standalone examples -- basic tour, multi-
 Contributions are welcome! Please open an issue first to discuss what you'd like to change.
 
 ```bash
-npm install          # install dependencies
-npm test             # run tests
-npm run build        # build the library
-npm run dev          # start the docs site dev server
-npm run dev:examples # start the examples dev server
-npm run build:demo   # build the docs site to docs/ for GitHub Pages
+pnpm install          # install dependencies
+pnpm test             # run tests
+pnpm run build        # build the library
+pnpm dev              # start the docs site dev server
+pnpm dev:examples     # start the examples dev server
+pnpm run build:demo   # build the docs site to docs/ for GitHub Pages
 ```
 
 ## License
