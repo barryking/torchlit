@@ -1,6 +1,6 @@
 {
   "name": "torchlit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Lightweight guided-tour & onboarding library built on Lit web components. Shadow DOM aware, framework-agnostic, tiny footprint.",
   "type": "module",
   "main": "dist/index.js",
