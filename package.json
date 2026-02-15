@@ -1,6 +1,6 @@
 {
   "name": "torchlit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Lightweight guided-tour & onboarding library built on Lit web components. Shadow DOM aware, framework-agnostic, tiny footprint.",
   "type": "module",
   "main": "dist/index.js",
@@ -60,6 +60,14 @@
   },
   "peerDependencies": {
     "lit": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "lit": {
+      "optional": false
+    }
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "jsdom": "^28.0.0",
