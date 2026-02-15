@@ -508,6 +508,17 @@ export class TorchlitOverlay extends LitElement {
     });
   }
 
+  /* ── Scroll helpers ─────────────────────────────── */
+
+  /**
+   * Whether the target element (plus its tooltip) fits comfortably inside the
+   * viewport. When it doesn't, we only need the top of the target visible —
+   * the tooltip tracks scroll, so the user can explore the rest naturally.
+   */
+  private fitsInViewport(el: Element): boolean {
+    return el.getBoundingClientRect().height + TOOLTIP_H_MAX + GAP * 2 < window.innerHeight;
+  }
+
   /* ── Tour state handler ─────────────────────────── */
 
   private async handleTourChange(snapshot: TourSnapshot | null) {
@@ -575,15 +586,22 @@ export class TorchlitOverlay extends LitElement {
     if (this.snapshot?.targetElement) {
       const rect = this.snapshot.targetElement.getBoundingClientRect();
       const vh = window.innerHeight;
-      const isTall = rect.height > vh * 0.6;
-      // For tall targets, only require the top to be visible (user can scroll further).
-      // For normal targets, require the whole element in view.
-      const inView = isTall
-        ? rect.top >= 0 && rect.top < vh * 0.5
-        : rect.top >= 0 && rect.bottom <= vh && rect.left >= 0 && rect.right <= window.innerWidth;
+      const fits = this.fitsInViewport(this.snapshot.targetElement);
+      const placement = this.snapshot.step.placement;
+      const PADDING = this.service?.spotlightPadding ?? 10;
+
+      // Small targets that fit with their tooltip: require the whole element visible.
+      // Large targets: placement-aware — for 'top' placement, ensure there is
+      // enough room above the target for the tooltip; for other placements,
+      // just require the top to be somewhere on screen.
+      const inView = fits
+        ? rect.top >= 0 && rect.bottom <= vh && rect.left >= 0 && rect.right <= window.innerWidth
+        : placement === 'top'
+          ? rect.top >= TOOLTIP_H_MAX + GAP + PADDING && rect.top < vh
+          : rect.top >= 0 && rect.top < vh;
 
       if (!inView) {
-        await this.scrollAndSettle(this.snapshot.targetElement);
+        await this.scrollAndSettle(this.snapshot.targetElement, placement);
         // Recalculate rect at the post-scroll position
         this.snapshot = this.service.getSnapshot();
       }
@@ -600,14 +618,33 @@ export class TorchlitOverlay extends LitElement {
 
   /**
    * Scroll an element into view and wait for the scroll to finish.
-   * For tall elements (> 60% of viewport), scrolls to the top so the user
-   * sees the start of the element plus the tooltip. For smaller elements,
-   * centers them in the viewport.
+   *
+   * Small elements that fit (with their tooltip) are centered in the viewport.
+   * Large elements are scrolled with a **placement-aware** offset so there is
+   * room for the tooltip on the preferred side.  When `placement` is `'top'`,
+   * we reserve enough space above the target for the tooltip; for other
+   * placements the tooltip goes below or beside, so a smaller offset suffices.
    */
-  private scrollAndSettle(el: Element): Promise<void> {
+  private scrollAndSettle(el: Element, placement: TourPlacement): Promise<void> {
     const vh = window.innerHeight;
-    const isTall = el.getBoundingClientRect().height > vh * 0.6;
-    el.scrollIntoView({ behavior: 'smooth', block: isTall ? 'start' : 'center', inline: 'nearest' });
+    const rect = el.getBoundingClientRect();
+
+    if (this.fitsInViewport(el)) {
+      // Small targets — center them for a balanced feel
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    } else {
+      const PADDING = this.service?.spotlightPadding ?? 10;
+
+      // Reserve space above the target based on preferred tooltip placement.
+      // 'top': the tooltip sits above the target, so leave room for it.
+      // Others: tooltip goes below or beside, so a small offset suffices.
+      const desiredTop = placement === 'top'
+        ? TOOLTIP_H_MAX + GAP + PADDING   // ~296px — room for the tooltip
+        : vh * 0.15;                       // ~15% — comfortable context
+
+      const scrollTarget = window.scrollY + rect.top - desiredTop;
+      window.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+    }
 
     return new Promise(resolve => {
       let lastTop = el.getBoundingClientRect().top;
@@ -915,54 +952,8 @@ export class TorchlitOverlay extends LitElement {
         <div class="tour-message" id="tour-desc">${step.message}</div>
 
         ${this.renderProgressDots(stepIndex, totalSteps)}
-
-        <div class="tour-footer">
-          <button
-            class="tour-skip"
-            aria-label="Skip tour"
-            @click=${() => { this.clearAutoAdvance(); this.service.skipTour(); }}
-          >
-            Skip tour
-          </button>
-          <div class="tour-nav">
-            ${stepIndex > 0 ? html`
-              <button
-                class="tour-btn"
-                aria-label="Go to previous step"
-                @click=${() => { this.clearAutoAdvance(); this.service.prevStep(); }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-                Back
-              </button>
-            ` : nothing}
-            <button
-              class="tour-btn primary"
-              aria-label="${stepIndex === totalSteps - 1 ? 'Finish tour' : 'Go to next step'}"
-              @click=${() => { this.clearAutoAdvance(); this.service.nextStep(); }}
-            >
-              ${stepIndex === totalSteps - 1 ? 'Finish' : 'Next'}
-              ${stepIndex < totalSteps - 1 ? html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              ` : html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              `}
-            </button>
-          </div>
-        </div>
-
-        ${step.autoAdvance ? keyed(stepIndex, html`
-          <div
-            class="tour-auto-progress"
-            style="animation: autoAdvanceFill ${step.autoAdvance}ms linear forwards;"
-            aria-hidden="true"
-          ></div>
-        `) : nothing}
+        ${this.renderFooter(stepIndex, totalSteps)}
+        ${this.renderAutoProgress(step, stepIndex)}
       </div>
     `;
   }
@@ -979,6 +970,69 @@ export class TorchlitOverlay extends LitElement {
         `)}
       </div>
     `;
+  }
+
+  private renderFooter(
+    stepIndex: number,
+    totalSteps: number,
+    finishLabel = 'Finish',
+    finishAriaLabel = 'Finish tour',
+    showNavIcons = true,
+  ) {
+    return html`
+      <div class="tour-footer">
+        <button
+          class="tour-skip"
+          aria-label="Skip tour"
+          @click=${() => { this.clearAutoAdvance(); this.service.skipTour(); }}
+        >
+          Skip tour
+        </button>
+        <div class="tour-nav">
+          ${stepIndex > 0 ? html`
+            <button
+              class="tour-btn"
+              aria-label="Go to previous step"
+              @click=${() => { this.clearAutoAdvance(); this.service.prevStep(); }}
+            >
+              ${showNavIcons ? html`
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              ` : nothing}
+              Back
+            </button>
+          ` : nothing}
+          <button
+            class="tour-btn primary"
+            aria-label="${stepIndex === totalSteps - 1 ? finishAriaLabel : 'Go to next step'}"
+            @click=${() => { this.clearAutoAdvance(); this.service.nextStep(); }}
+          >
+            ${stepIndex === totalSteps - 1 ? finishLabel : 'Next'}
+            ${stepIndex < totalSteps - 1 ? html`
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            ` : showNavIcons ? html`
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            ` : nothing}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderAutoProgress(step: TourStep, stepIndex: number) {
+    if (!step.autoAdvance) return nothing;
+    return keyed(stepIndex, html`
+      <div
+        class="tour-auto-progress"
+        style="animation: autoAdvanceFill ${step.autoAdvance}ms linear forwards;"
+        aria-hidden="true"
+      ></div>
+    `);
   }
 
   private renderCenteredStep(step: TourStep, stepIndex: number, totalSteps: number) {
@@ -1017,45 +1071,8 @@ export class TorchlitOverlay extends LitElement {
         <div class="tour-message" id="tour-desc-center">${step.message}</div>
 
         ${this.renderProgressDots(stepIndex, totalSteps)}
-
-        <div class="tour-footer">
-          <button
-            class="tour-skip"
-            aria-label="Skip tour"
-            @click=${() => { this.clearAutoAdvance(); this.service.skipTour(); }}
-          >
-            Skip tour
-          </button>
-          <div class="tour-nav">
-            ${stepIndex > 0 ? html`
-              <button
-                class="tour-btn"
-                aria-label="Go to previous step"
-                @click=${() => { this.clearAutoAdvance(); this.service.prevStep(); }}
-              >Back</button>
-            ` : nothing}
-            <button
-              class="tour-btn primary"
-              aria-label="${stepIndex === totalSteps - 1 ? 'Start the tour' : 'Go to next step'}"
-              @click=${() => { this.clearAutoAdvance(); this.service.nextStep(); }}
-            >
-              ${stepIndex === totalSteps - 1 ? "Let's go!" : 'Next'}
-              ${stepIndex < totalSteps - 1 ? html`
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              ` : nothing}
-            </button>
-          </div>
-        </div>
-
-        ${step.autoAdvance ? keyed(stepIndex, html`
-          <div
-            class="tour-auto-progress"
-            style="animation: autoAdvanceFill ${step.autoAdvance}ms linear forwards;"
-            aria-hidden="true"
-          ></div>
-        `) : nothing}
+        ${this.renderFooter(stepIndex, totalSteps, "Let's go!", 'Start the tour', false)}
+        ${this.renderAutoProgress(step, stepIndex)}
       </div>
     `;
   }

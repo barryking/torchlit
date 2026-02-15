@@ -1160,6 +1160,175 @@
       font-size: 0.75rem;
       line-height: 1.5;
     }
+
+    /* ── Hamburger button (hidden on desktop) ──────────────────────── */
+
+    .menu-toggle {
+      display: none;
+    }
+
+    /* ── Sidebar backdrop (mobile only) ────────────────────────────── */
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 19;
+    }
+
+    .sidebar-backdrop.visible {
+      display: block;
+    }
+
+    /* ── Mobile responsive ─────────────────────────────────────────── */
+
+    @media (max-width: 768px) {
+      /* Layout: single column */
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      /* Hamburger visible on mobile */
+      .menu-toggle {
+        display: inline-flex;
+      }
+
+      /* Sidebar: off-canvas overlay */
+      .sidebar {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        bottom: 0;
+        width: 260px;
+        z-index: 20;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: none;
+        overflow-y: auto;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: var(--shadow-lg);
+      }
+
+      /* Main content: reduce padding */
+      .main {
+        padding: 1.25rem 1rem;
+      }
+
+      /* Typography: scale down */
+      .page-title {
+        font-size: 1.25rem;
+      }
+
+      .page-subtitle {
+        font-size: 0.8125rem;
+        margin-bottom: 1.25rem;
+      }
+
+      /* Cards grid: smaller min for narrow screens */
+      .cards-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+
+      /* Stats bar: stack on small screens */
+      .stats-bar {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.75rem;
+      }
+
+      /* Reference tables: horizontal scroll */
+      .ref-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Code blocks: ensure horizontal scroll */
+      pre[class*="language-"] {
+        max-width: calc(100vw - 2rem);
+        overflow-x: auto;
+      }
+
+      /* Demo row: wrap on mobile */
+      .demo-row {
+        flex-wrap: wrap;
+      }
+
+      .demo-target {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+      }
+
+      /* Demo tabs: scrollable if many */
+      .demo-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Install bar: stack */
+      .install-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .install-bar .cmd {
+        font-size: 0.75rem;
+      }
+
+      /* Step list: tighter on mobile */
+      .step {
+        padding-left: 2rem;
+      }
+
+      /* Search bars */
+      .search-bar input,
+      .search-bar-wrap input {
+        font-size: 0.8125rem;
+      }
+
+      /* Playground: already handled, but tighten padding */
+      .playground-controls {
+        padding: 1rem;
+      }
+
+      .playground-control label {
+        min-width: 120px;
+        font-size: 0.6875rem;
+      }
+
+      /* Sidebar footer: hide on mobile to save space */
+      .sidebar-footer {
+        display: none;
+      }
+    }
+
+    /* ── Extra-small screens ───────────────────────────────────────── */
+
+    @media (max-width: 400px) {
+      .header {
+        padding: 0 0.75rem;
+      }
+
+      .header-actions {
+        gap: 0.25rem;
+      }
+
+      .app-name {
+        font-size: 0.8125rem;
+      }
+
+      .main {
+        padding: 1rem 0.75rem;
+      }
+
+      .stats-bar {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1167,6 +1336,13 @@
     <!-- ── Header ───────────────────────────────────────────────── -->
     <header class="header">
       <div class="header-left">
+        <button class="icon-btn menu-toggle" id="btn-menu" title="Toggle menu" aria-label="Toggle navigation menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
         <div class="logo">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none">
             <path d="M12 2c-.6 3.6-3 5.4-3.6 9-.3 1.8.3 3.6 1.5 4.8-.6-2.4.6-4.2 2.1-6-.3 3 .6 5.4 2.4 7.2.6-1.2.9-2.7.6-4.2 1.2 1.8 2.1 3.6 1.8 6 1.2-1.2 1.8-3 1.5-4.8-.6-3.6-3.3-8.4-6.3-12z"/>
@@ -1225,6 +1401,14 @@
         Getting Started
       </button>
 
+      <button class="nav-item" data-page="recipes" data-tour-id="nav-recipes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 3h6"></path>
+          <path d="M10 3v4.4a1 1 0 0 1-.2.6L4 16a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3l-5.8-8a1 1 0 0 1-.2-.6V3"></path>
+        </svg>
+        Recipes
+      </button>
+
       <button class="nav-item" data-page="api" data-tour-id="nav-api">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="16 18 22 12 16 6"></polyline>
@@ -1235,11 +1419,10 @@
 
       <button class="nav-item" data-page="styling" data-tour-id="nav-styling">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="13.5" cy="6.5" r="2.5"></circle>
-          <path d="M17.5 10.5a2.5 2.5 0 1 0 0 5"></path>
-          <path d="M6.5 10.5a2.5 2.5 0 1 1 0 5"></path>
-          <circle cx="13.5" cy="17.5" r="2.5"></circle>
-          <circle cx="8.5" cy="6.5" r="2.5"></circle>
+          <path d="M12 2a10 10 0 0 0 0 20 2 2 0 0 0 2-2v-1a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2 10 10 0 0 0-7-13z"></path>
+          <circle cx="8" cy="12" r="1"></circle>
+          <circle cx="12" cy="8" r="1"></circle>
+          <circle cx="16" cy="12" r="1"></circle>
         </svg>
         Styling
       </button>
@@ -1253,6 +1436,7 @@
         </div>
       </div>
     </nav>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
     <!-- ── Main content ─────────────────────────────────────────── -->
     <main class="main" data-tour-id="main-content">
@@ -1523,6 +1707,531 @@ helpButton.addEventListener('click', () =&gt; {
   const tourId = helpMap[currentPage];
   if (tourId) tours.start(tourId);
 });</code></pre>
+        </div>
+
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           Recipes page
+           ════════════════════════════════════════════════════════════ -->
+      <div class="page" id="page-recipes">
+        <h1 class="page-title">Recipes</h1>
+        <p class="page-subtitle">
+          Ready-to-copy patterns for common use cases and framework integrations.
+        </p>
+
+        <div class="search-bar" data-tour-id="recipes-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="recipes-search-input" placeholder="Search recipes…" />
+        </div>
+
+        <div class="api-pills" data-tour-id="recipes-pills">
+          <button class="api-pill" onclick="document.getElementById('recipe-frameworks').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            Frameworks
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-spa').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            SPA Tours
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-mpa').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Multi-Page
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-kiosk').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Kiosk Mode
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-shadow').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Shadow DOM
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-contextual').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Contextual Help
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-rich').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Rich Content
+          </button>
+          <button class="api-pill" onclick="document.getElementById('recipe-storage').scrollIntoView({behavior:'smooth'})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            Custom Storage
+          </button>
+        </div>
+
+        <!-- ── Framework Integrations ──────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-frameworks" data-tour-id="recipes-frameworks">
+          <h2 class="section-title">Framework Integration</h2>
+          <p class="doc-text">
+            Torchlit is a web component — it works with any framework. Here's how to wire it into the most popular ones.
+          </p>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">React</h3>
+          <p class="doc-text">
+            Create the service once in a hook or context provider.
+            Use a <code>ref</code> for the overlay and assign <code>.service</code> in <code>useEffect</code>.
+          </p>
+          <pre><code class="language-typescript">import { useEffect, useRef } from 'react';
+import { createTourService } from 'torchlit';
+import 'torchlit/overlay';
+
+const tours = createTourService({ storageKey: 'my-app-tours' });
+
+tours.register({
+  id: 'welcome',
+  name: 'Welcome',
+  trigger: 'first-visit',
+  steps: [
+    { target: 'sidebar', title: 'Navigation', message: 'Browse from here.', placement: 'right' },
+    { target: 'search',  title: 'Search',     message: 'Find anything.',    placement: 'bottom' },
+  ],
+});
+
+export function App() {
+  const overlayRef = useRef&lt;HTMLElement&gt;(null);
+
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (el) el.service = tours;
+
+    if (tours.shouldAutoStart('welcome')) {
+      setTimeout(() => tours.start('welcome'), 500);
+    }
+  }, []);
+
+  return (
+    &lt;&gt;
+      {/* your app JSX */}
+      &lt;torchlit-overlay ref={overlayRef} /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+          <blockquote class="doc-text" style="border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--muted-foreground);">
+            <strong>Tip:</strong> For shared access across components, expose <code>tours</code> via React Context or a module-level singleton.
+          </blockquote>
+          </div>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">Vue 3</h3>
+          <p class="doc-text">
+            Use a composable or create the service at the app level. Assign via a template ref in <code>onMounted</code>.
+          </p>
+          <pre><code class="language-typescript">&lt;script setup lang="ts"&gt;
+import { ref, onMounted } from 'vue';
+import { createTourService } from 'torchlit';
+import 'torchlit/overlay';
+
+const tours = createTourService({ storageKey: 'my-app-tours' });
+const overlayRef = ref&lt;HTMLElement | null&gt;(null);
+
+tours.register({
+  id: 'welcome',
+  name: 'Welcome',
+  trigger: 'first-visit',
+  steps: [
+    { target: 'sidebar', title: 'Navigation', message: 'Browse from here.', placement: 'right' },
+    { target: 'search',  title: 'Search',     message: 'Find anything.',    placement: 'bottom' },
+  ],
+});
+
+onMounted(() => {
+  if (overlayRef.value) overlayRef.value.service = tours;
+
+  if (tours.shouldAutoStart('welcome')) {
+    setTimeout(() => tours.start('welcome'), 500);
+  }
+});
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;!-- your app template --&gt;
+  &lt;torchlit-overlay ref="overlayRef" /&gt;
+&lt;/template&gt;</code></pre>
+          </div>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">Svelte</h3>
+          <p class="doc-text">
+            Bind the overlay element with <code>bind:this</code> and wire it up in <code>onMount</code>.
+          </p>
+          <pre><code class="language-typescript">&lt;script&gt;
+  import { onMount } from 'svelte';
+  import { createTourService } from 'torchlit';
+  import 'torchlit/overlay';
+
+  const tours = createTourService({ storageKey: 'my-app-tours' });
+  let overlay;
+
+  tours.register({
+    id: 'welcome',
+    name: 'Welcome',
+    trigger: 'first-visit',
+    steps: [
+      { target: 'sidebar', title: 'Navigation', message: 'Browse from here.', placement: 'right' },
+      { target: 'search',  title: 'Search',     message: 'Find anything.',    placement: 'bottom' },
+    ],
+  });
+
+  onMount(() => {
+    overlay.service = tours;
+    if (tours.shouldAutoStart('welcome')) {
+      setTimeout(() => tours.start('welcome'), 500);
+    }
+  });
+&lt;/script&gt;
+
+&lt;!-- your app markup --&gt;
+&lt;torchlit-overlay bind:this={overlay} /&gt;</code></pre>
+          </div>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">Plain JS / TS</h3>
+          <p class="doc-text">
+            No framework needed — just a <code>&lt;script type="module"&gt;</code> tag.
+          </p>
+          <pre><code class="language-html">&lt;torchlit-overlay&gt;&lt;/torchlit-overlay&gt;
+
+&lt;script type="module"&gt;
+  import { createTourService, TorchlitOverlay } from 'torchlit';
+
+  if (!customElements.get('torchlit-overlay')) {
+    customElements.define('torchlit-overlay', TorchlitOverlay);
+  }
+
+  const tours = createTourService();
+  const overlay = document.querySelector('torchlit-overlay');
+  overlay.service = tours;
+
+  tours.register({
+    id: 'welcome', name: 'Welcome', trigger: 'first-visit',
+    steps: [
+      { target: 'sidebar', title: 'Navigation', message: 'Browse.', placement: 'right' },
+    ],
+  });
+
+  if (tours.shouldAutoStart('welcome')) tours.start('welcome');
+&lt;/script&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- ── SPA Multi-View Tours ────────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-spa" data-tour-id="recipes-spa">
+          <h2 class="section-title">SPA Multi-View Tours</h2>
+          <p class="doc-text">
+            In single-page apps, tours can span multiple views without losing state.
+            Use <code>beforeShow</code> to navigate and <code>route</code> to emit a <code>tour-route-change</code> event.
+          </p>
+          <pre><code class="language-typescript">tours.register({
+  id: 'full-tour',
+  name: 'App Tour',
+  trigger: 'first-visit',
+  steps: [
+    {
+      target: 'dashboard-stats',
+      title: 'Dashboard',
+      message: 'Your key metrics at a glance.',
+      placement: 'bottom',
+      beforeShow: () => router.push('/dashboard'),
+    },
+    {
+      target: 'analytics-chart',
+      title: 'Analytics',
+      message: 'The tour followed you to a new page!',
+      placement: 'top',
+      route: 'analytics',
+      beforeShow: () => router.push('/analytics'),
+    },
+    {
+      target: 'settings-panel',
+      title: 'Settings',
+      message: 'Configure your preferences here.',
+      placement: 'left',
+      route: 'settings',
+      beforeShow: () => router.push('/settings'),
+    },
+  ],
+});
+
+// Listen for route hints from the overlay
+overlay.addEventListener('tour-route-change', (e) => {
+  router.push(e.detail.route);
+});</code></pre>
+          <blockquote class="doc-text" style="border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--muted-foreground);">
+            <strong>Tip:</strong> Add <code>beforeShow</code> to <em>every</em> step that needs a specific view — not just forward transitions. This ensures backward navigation (Back button) also lands on the correct page.
+          </blockquote>
+        </div>
+
+        <!-- ── Multi-Page (MPA) Apps ───────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-mpa" data-tour-id="recipes-mpa">
+          <h2 class="section-title">Multi-Page (MPA) Apps</h2>
+          <p class="doc-text">
+            For traditional multi-page apps where each URL is a full page load, Torchlit persists
+            completed/dismissed state to <code>localStorage</code>. Register per-page tours on each page
+            and use <code>shouldAutoStart</code> to resume.
+          </p>
+          <pre><code class="language-typescript">// ── dashboard.html ──────────────────────────
+import { createTourService } from 'torchlit';
+import 'torchlit/overlay';
+
+const tours = createTourService({ storageKey: 'my-app-tours' });
+
+tours.register({
+  id: 'dashboard-intro',
+  name: 'Dashboard Intro',
+  trigger: 'first-visit',
+  steps: [
+    { target: 'stats',   title: 'Stats',   message: 'Your key metrics.',   placement: 'bottom' },
+    { target: 'actions', title: 'Actions',  message: 'Quick actions here.', placement: 'right' },
+  ],
+  onComplete: () => {
+    // Guide user to the next page
+    window.location.href = '/analytics';
+  },
+});
+
+const overlay = document.querySelector('torchlit-overlay');
+overlay.service = tours;
+
+if (tours.shouldAutoStart('dashboard-intro')) {
+  tours.start('dashboard-intro');
+}</code></pre>
+          <pre><code class="language-typescript">// ── analytics.html ──────────────────────────
+// Same storageKey — state carries over!
+const tours = createTourService({ storageKey: 'my-app-tours' });
+
+tours.register({
+  id: 'analytics-intro',
+  name: 'Analytics Intro',
+  trigger: 'first-visit',
+  steps: [
+    { target: 'chart', title: 'Charts', message: 'Your analytics.', placement: 'top' },
+  ],
+});
+
+// ...</code></pre>
+          <blockquote class="doc-text" style="border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--muted-foreground);">
+            <strong>Key:</strong> Use the same <code>storageKey</code> across pages so completed/dismissed state is shared. Each page registers only its own tour.
+          </blockquote>
+        </div>
+
+        <!-- ── Kiosk / Demo Mode ───────────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-kiosk" data-tour-id="recipes-kiosk">
+          <h2 class="section-title">Kiosk / Demo Mode</h2>
+          <p class="doc-text">
+            Combine <code>loop: true</code> with <code>autoAdvance</code> for hands-free, self-running tours.
+            Perfect for expo booths, product demos, and digital signage.
+          </p>
+          <pre><code class="language-typescript">tours.register({
+  id: 'kiosk',
+  name: 'Product Demo',
+  trigger: 'manual',
+  loop: true,  // restarts from step 0 after the last step
+  steps: [
+    {
+      target: 'feature-1',
+      title: 'Smart Search',
+      message: 'Find anything in milliseconds.',
+      placement: 'bottom',
+      autoAdvance: 4000,  // advance after 4 seconds
+    },
+    {
+      target: 'feature-2',
+      title: 'Real-Time Sync',
+      message: 'Changes appear instantly across devices.',
+      placement: 'right',
+      autoAdvance: 4000,
+    },
+    {
+      target: 'feature-3',
+      title: 'Team Collaboration',
+      message: 'Work together seamlessly.',
+      placement: 'left',
+      autoAdvance: 4000,
+    },
+  ],
+});
+
+// Start the loop
+tours.start('kiosk');</code></pre>
+          <blockquote class="doc-text" style="border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--muted-foreground);">
+            <strong>Note:</strong> Users can still exit with <kbd>Escape</kbd> or the Skip button. A progress bar renders automatically at the bottom of each tooltip.
+          </blockquote>
+        </div>
+
+        <!-- ── Shadow DOM Targets ──────────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-shadow" data-tour-id="recipes-shadow">
+          <h2 class="section-title">Shadow DOM Targets</h2>
+          <p class="doc-text">
+            Torchlit's <code>deepQuery</code> utility traverses into shadow roots automatically.
+            Just add <code>data-tour-id</code> to any element — even deeply nested inside web components.
+          </p>
+          <pre><code class="language-html">&lt;!-- Your custom element --&gt;
+&lt;my-sidebar&gt;
+  #shadow-root
+    &lt;nav&gt;
+      &lt;button data-tour-id="nav-home"&gt;Home&lt;/button&gt;
+      &lt;my-dropdown&gt;
+        #shadow-root
+          &lt;div data-tour-id="nav-settings"&gt;Settings&lt;/div&gt;
+      &lt;/my-dropdown&gt;
+    &lt;/nav&gt;
+&lt;/my-sidebar&gt;</code></pre>
+          <pre><code class="language-typescript">// Torchlit finds both targets — no extra configuration
+tours.register({
+  id: 'nav-tour',
+  name: 'Navigation',
+  trigger: 'manual',
+  steps: [
+    { target: 'nav-home',     title: 'Home',     message: 'Go to the dashboard.', placement: 'right' },
+    { target: 'nav-settings', title: 'Settings',  message: 'Found inside nested shadow DOM!', placement: 'right' },
+  ],
+});</code></pre>
+          <p class="doc-text">
+            You can also use a custom attribute instead of <code>data-tour-id</code>:
+          </p>
+          <pre><code class="language-typescript">const tours = createTourService({
+  targetAttribute: 'data-onboard',  // matches [data-onboard="..."]
+});</code></pre>
+        </div>
+
+        <!-- ── Contextual Help ─────────────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-contextual" data-tour-id="recipes-contextual">
+          <h2 class="section-title">Contextual Help</h2>
+          <p class="doc-text">
+            Register short <code>manual</code> tours per section, then wire a help button to start the right one based on the current view.
+            This is the exact pattern used on this docs site.
+          </p>
+          <pre><code class="language-typescript">// Register per-section help tours
+tours.register([
+  {
+    id: 'dashboard-help',
+    name: 'Dashboard Help',
+    trigger: 'manual',
+    steps: [
+      { target: 'stats',   title: 'Stats',   message: 'Your daily metrics.',        placement: 'bottom' },
+      { target: 'actions', title: 'Actions',  message: 'Quick actions are here.',    placement: 'right' },
+    ],
+  },
+  {
+    id: 'settings-help',
+    name: 'Settings Help',
+    trigger: 'manual',
+    steps: [
+      { target: 'profile', title: 'Profile', message: 'Update your info.',          placement: 'bottom' },
+      { target: 'prefs',   title: 'Prefs',   message: 'Customize your experience.', placement: 'right' },
+    ],
+  },
+]);
+
+// Map views to their help tour
+const helpMap = {
+  dashboard: 'dashboard-help',
+  settings:  'settings-help',
+};
+
+document.getElementById('btn-help').addEventListener('click', () => {
+  const currentView = getCurrentView(); // your app logic
+  const tourId = helpMap[currentView];
+  if (tourId) tours.start(tourId);
+});</code></pre>
+        </div>
+
+        <!-- ── Rich Content in Tooltips ────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-rich" data-tour-id="recipes-rich">
+          <h2 class="section-title">Rich Content in Tooltips</h2>
+          <p class="doc-text">
+            Step messages accept Lit <code>html</code> tagged templates for rich HTML — bold, links, keyboard shortcuts, lists, and more.
+          </p>
+          <pre><code class="language-typescript">import { html } from 'lit';
+
+tours.register({
+  id: 'rich-tour',
+  name: 'Rich Content',
+  trigger: 'manual',
+  steps: [
+    {
+      target: 'editor',
+      title: 'Keyboard Shortcuts',
+      message: html`
+        &lt;p&gt;Press &lt;kbd&gt;Ctrl+S&lt;/kbd&gt; to save,
+        &lt;kbd&gt;Ctrl+Z&lt;/kbd&gt; to undo.&lt;/p&gt;
+        &lt;p&gt;See &lt;a href="/docs/shortcuts"
+          style="color: var(--primary)"&gt;all shortcuts&lt;/a&gt;.&lt;/p&gt;
+      `,
+      placement: 'bottom',
+    },
+    {
+      target: 'toolbar',
+      title: 'Formatting',
+      message: html`
+        &lt;ul style="margin: 0.5rem 0; padding-left: 1.25rem;"&gt;
+          &lt;li&gt;&lt;strong&gt;Bold&lt;/strong&gt; — Ctrl+B&lt;/li&gt;
+          &lt;li&gt;&lt;em&gt;Italic&lt;/em&gt; — Ctrl+I&lt;/li&gt;
+          &lt;li&gt;&lt;code&gt;Code&lt;/code&gt; — Ctrl+\`&lt;/li&gt;
+        &lt;/ul&gt;
+      `,
+      placement: 'bottom',
+    },
+  ],
+});</code></pre>
+        </div>
+
+        <!-- ── Custom Storage Adapter ──────────────────────────────── -->
+
+        <div class="doc-section" id="recipe-storage" data-tour-id="recipes-storage">
+          <h2 class="section-title">Custom Storage Adapter</h2>
+          <p class="doc-text">
+            By default Torchlit persists state to <code>localStorage</code>. You can swap in
+            <code>sessionStorage</code>, an API backend, or any object with <code>getItem</code> / <code>setItem</code>.
+          </p>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">sessionStorage</h3>
+          <p class="doc-text">
+            Show tours once per browser session instead of permanently:
+          </p>
+          <pre><code class="language-typescript">const tours = createTourService({
+  storage: sessionStorage,
+});</code></pre>
+          </div>
+
+          <div class="recipe-sub">
+          <h3 class="subsection-title">API-Backed Persistence</h3>
+          <p class="doc-text">
+            Sync tour state to your server so it follows the user across devices:
+          </p>
+          <pre><code class="language-typescript">const tours = createTourService({
+  storage: {
+    getItem(key) {
+      // Return cached value synchronously;
+      // hydrate from API on app startup
+      return localStorage.getItem(key);
+    },
+    setItem(key, value) {
+      localStorage.setItem(key, value);
+      // Fire-and-forget API sync
+      fetch('/api/tour-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+    },
+  },
+});</code></pre>
+          <blockquote class="doc-text" style="border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--muted-foreground);">
+            <strong>Note:</strong> The storage adapter must be synchronous (<code>getItem</code> returns a string or null).
+            Use a local cache with async background sync as shown above.
+          </blockquote>
+          </div>
         </div>
 
       </div>
@@ -2207,8 +2916,28 @@ torchlit-overlay::part(spotlight) {
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         switchPage(btn.dataset.page);
+        // Close mobile sidebar when a nav item is clicked
+        closeMobileSidebar();
       });
     });
+
+    // ── Mobile sidebar toggle ───────────────────────────────────────
+
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+    const menuToggle = document.getElementById('btn-menu');
+
+    function closeMobileSidebar() {
+      sidebar.classList.remove('open');
+      sidebarBackdrop.classList.remove('visible');
+    }
+
+    menuToggle.addEventListener('click', () => {
+      const isOpen = sidebar.classList.toggle('open');
+      sidebarBackdrop.classList.toggle('visible', isOpen);
+    });
+
+    sidebarBackdrop.addEventListener('click', closeMobileSidebar);
 
     // Handle route changes from tour steps
     overlay.addEventListener('tour-route-change', (e) => {
@@ -2247,6 +2976,7 @@ torchlit-overlay::part(spotlight) {
               'Key metrics about Torchlit — bundle size, dependencies, ' +
               'and framework support. The spotlight highlights exactly what you need.',
             placement: 'bottom',
+            beforeShow: () => switchPage('overview'),
           },
           {
             target: 'overview-features',
@@ -2255,6 +2985,7 @@ torchlit-overlay::part(spotlight) {
               'Shadow DOM traversal, framework-agnostic design, CSS theming, ' +
               'and a tiny bundle. These cards detail what makes Torchlit different.',
             placement: 'top',
+            beforeShow: () => switchPage('overview'),
           },
           {
             target: 'nav-guide',
@@ -2264,13 +2995,21 @@ torchlit-overlay::part(spotlight) {
             placement: 'right',
           },
           {
+            target: 'nav-recipes',
+            title: 'Recipes',
+            message:
+              'Ready-to-copy patterns for React, Vue, Svelte, kiosk mode, ' +
+              'multi-page apps, shadow DOM targets, and more.',
+            placement: 'right',
+          },
+          {
             target: 'guide-demo',
             title: 'Interactive Examples',
             message:
               'The spotlight followed you to a new page! ' +
               'Try these live demos — each one shows a different Torchlit feature with its code.',
             placement: 'top',
-            beforeShow: () => switchPage('api'),
+            beforeShow: () => switchPage('styling'),
           },
           {
             target: 'header-help',
@@ -2406,6 +3145,48 @@ torchlit-overlay::part(spotlight) {
           },
         ],
       },
+      {
+        id: 'recipes-help',
+        name: 'Recipes Help',
+        trigger: 'manual',
+        steps: [
+          {
+            target: 'recipes-search',
+            title: 'Search Recipes',
+            message:
+              'Type a keyword like "React", "kiosk", or "shadow" to filter recipes instantly.',
+            placement: 'bottom',
+          },
+          {
+            target: 'recipes-frameworks',
+            title: 'Framework Integration',
+            message:
+              'Ready-to-copy setup code for React, Vue, Svelte, and plain JS/TS.',
+            placement: 'top',
+          },
+          {
+            target: 'recipes-spa',
+            title: 'SPA & Routing',
+            message:
+              'Patterns for tours that span multiple views in single-page apps.',
+            placement: 'top',
+          },
+          {
+            target: 'recipes-kiosk',
+            title: 'Kiosk Mode',
+            message:
+              'Auto-advancing, looping tours for demos and digital signage.',
+            placement: 'top',
+          },
+          {
+            target: 'recipes-storage',
+            title: 'Custom Storage',
+            message:
+              'Swap localStorage for sessionStorage or an API-backed adapter.',
+            placement: 'top',
+          },
+        ],
+      },
     ]);
 
     // ── Map pages to help tours ─────────────────────────────────────
@@ -2413,6 +3194,7 @@ torchlit-overlay::part(spotlight) {
     const helpMap = {
       overview: 'overview-help',
       guide: 'guide-help',
+      recipes: 'recipes-help',
       api: 'api-help',
       styling: 'styling-help',
     };
@@ -2451,6 +3233,45 @@ torchlit-overlay::part(spotlight) {
           if (!query) { section.style.display = ''; return; }
           const text = section.textContent?.toLowerCase() ?? '';
           section.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    // ── Recipes search (client-side filter) ────────────────────────
+
+    const recipesSearch = document.getElementById('recipes-search-input');
+    if (recipesSearch) {
+      recipesSearch.addEventListener('input', (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        const recipesPage = document.getElementById('page-recipes');
+        if (!recipesPage) return;
+
+        // Filter top-level sections and subsections independently
+        const sections = recipesPage.querySelectorAll('.doc-section');
+        sections.forEach(section => {
+          const subs = section.querySelectorAll('.recipe-sub');
+          if (subs.length === 0) {
+            // No subsections — filter the whole section
+            if (!query) { section.style.display = ''; return; }
+            const text = section.textContent?.toLowerCase() ?? '';
+            section.style.display = text.includes(query) ? '' : 'none';
+          } else {
+            // Has subsections — filter each individually
+            let anyVisible = false;
+            subs.forEach(sub => {
+              if (!query) { sub.style.display = ''; anyVisible = true; return; }
+              const text = sub.textContent?.toLowerCase() ?? '';
+              const match = text.includes(query);
+              sub.style.display = match ? '' : 'none';
+              if (match) anyVisible = true;
+            });
+            // Also check the section heading/intro text
+            if (!query) { section.style.display = ''; return; }
+            const introText = (section.querySelector('.section-title')?.textContent ?? '').toLowerCase() +
+                              (section.querySelector('.section-title + .doc-text')?.textContent ?? '').toLowerCase();
+            if (introText.includes(query)) anyVisible = true;
+            section.style.display = anyVisible ? '' : 'none';
+          }
         });
       });
     }
