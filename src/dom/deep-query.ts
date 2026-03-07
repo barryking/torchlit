@@ -1,6 +1,6 @@
 export function deepQuery(
   selector: string,
-  root: Element | Document = document.body,
+  root: Element | Document | ShadowRoot = document.body,
 ): Element | null {
   const found = root.querySelector(selector);
   if (found) return found;
@@ -8,10 +8,7 @@ export function deepQuery(
   const children = root.querySelectorAll('*');
   for (const element of children) {
     if (element.shadowRoot) {
-      const shadowResult = deepQuery(
-        selector,
-        element.shadowRoot as unknown as Document,
-      );
+      const shadowResult = deepQuery(selector, element.shadowRoot);
       if (shadowResult) return shadowResult;
     }
   }

@@ -17,10 +17,11 @@ export function scrollAndSettle(
   placement: TourPlacement,
   spotlightPadding: number,
 ): Promise<void> {
-  const rect = element.getBoundingClientRect();
+  const initialRect = element.getBoundingClientRect();
   const viewportHeight = window.innerHeight;
 
-  if (fitsInViewport(rect, viewportHeight)) {
+  // Use the pre-scroll measurement only to decide fit and target offset.
+  if (fitsInViewport(initialRect, viewportHeight)) {
     element.scrollIntoView({
       behavior: 'smooth',
       block: 'center',
@@ -31,7 +32,7 @@ export function scrollAndSettle(
       placement === 'top'
         ? TOOLTIP_H_MAX + GAP + spotlightPadding
         : viewportHeight * 0.15;
-    const scrollTarget = window.scrollY + rect.top - desiredTop;
+    const scrollTarget = window.scrollY + initialRect.top - desiredTop;
     window.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
   }
 

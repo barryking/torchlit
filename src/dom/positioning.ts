@@ -4,6 +4,7 @@ export const TOOLTIP_W = 320;
 export const TOOLTIP_H_MAX = 270;
 export const GAP = 16;
 export const VIEWPORT_MARGIN = 24;
+export const TOOLTIP_VERTICAL_OFFSET = 80;
 
 export function fitsInViewport(
   rect: DOMRect,
@@ -68,12 +69,12 @@ export function getTooltipPosition(
   switch (placement) {
     case 'right':
       return {
-        top: visibleCenterY - 80,
+        top: visibleCenterY - TOOLTIP_VERTICAL_OFFSET,
         left: rect.right + spotlightPadding + GAP,
       };
     case 'left':
       return {
-        top: visibleCenterY - 80,
+        top: visibleCenterY - TOOLTIP_VERTICAL_OFFSET,
         left: rect.left - spotlightPadding - GAP - TOOLTIP_W,
       };
     case 'bottom':

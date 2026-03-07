@@ -1,8 +1,11 @@
 import type { TourSnapshot as CoreTourSnapshot } from '../core/types.js';
+import { GAP, TOOLTIP_H_MAX } from '../dom/positioning.js';
 import { scrollAndSettle } from '../dom/scroll-manager.js';
 import { resolveStepTarget, waitForTarget } from '../dom/target-resolver.js';
 import type { TourDefinition, TourStep } from '../types.js';
 import type { ResolvedTourSnapshot } from './types.js';
+
+const TARGET_CONTEXT_MARGIN = 32;
 
 export interface StepRunnerOptions {
   getCurrentSnapshot: () => CoreTourSnapshot<TourStep> | null;
@@ -95,15 +98,14 @@ export class StepRunner {
     if (!rect) return false;
 
     const viewportHeight = window.innerHeight;
-    const fits =
-      rect.height + 270 + 32 < viewportHeight;
+    const fits = rect.height + TOOLTIP_H_MAX + TARGET_CONTEXT_MARGIN < viewportHeight;
     const inView = fits
       ? rect.top >= 0 &&
         rect.bottom <= viewportHeight &&
         rect.left >= 0 &&
         rect.right <= window.innerWidth
       : snapshot.step.placement === 'top'
-        ? rect.top >= 270 + 16 + this.options.spotlightPadding &&
+        ? rect.top >= TOOLTIP_H_MAX + GAP + this.options.spotlightPadding &&
           rect.top < viewportHeight
         : rect.top >= 0 && rect.top < viewportHeight;
 

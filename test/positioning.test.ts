@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  GAP,
+  TOOLTIP_H_MAX,
+  TOOLTIP_W,
+  VIEWPORT_MARGIN,
   bestPlacement,
   clampToViewport,
   getArrowClass,
@@ -59,19 +63,34 @@ describe('positioning helpers', () => {
   });
 
   it('computes tooltip positions and clamps them to the viewport', () => {
-    const position = getTooltipPosition(mockRect(200, 100, 120, 40), 'bottom', 10);
+    const rect = mockRect(200, 100, 120, 40);
+    const padding = 10;
+    const position = getTooltipPosition(rect, 'bottom', padding);
     const clamped = clampToViewport({ top: -50, left: 900 });
+    const expectedPosition = {
+      top: rect.bottom + padding + GAP,
+      left: rect.left + rect.width / 2 - TOOLTIP_W / 2,
+    };
+    const expectedClamped = {
+      top: VIEWPORT_MARGIN,
+      left: window.innerWidth - TOOLTIP_W - VIEWPORT_MARGIN,
+    };
 
-    expect(position).toEqual({ top: 166, left: 100 });
-    expect(clamped).toEqual({ top: 24, left: 680 });
+    expect(position).toEqual(expectedPosition);
+    expect(clamped).toEqual(expectedClamped);
   });
 
   it('returns stable arrow classes and offsets', () => {
     const placement: TourPlacement = 'right';
     const targetRect = mockRect(100, 300, 80, 40);
     const tooltipPos = { top: 250, left: 206 };
+    const visibleTop = Math.max(0, targetRect.top);
+    const visibleBottom = Math.min(window.innerHeight, targetRect.bottom);
+    const targetCenterY = (visibleTop + visibleBottom) / 2;
 
     expect(getArrowClass(placement)).toBe('arrow-right');
-    expect(getArrowOffset(targetRect, tooltipPos, placement)).toBe('70px');
+    expect(getArrowOffset(targetRect, tooltipPos, placement)).toBe(
+      `${Math.max(20, Math.min(targetCenterY - tooltipPos.top, TOOLTIP_H_MAX - 20))}px`,
+    );
   });
 });
