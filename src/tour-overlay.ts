@@ -1,17 +1,22 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
-import { deepQuery } from './utils/deep-query.js';
+import type { TourSnapshot as CoreTourSnapshot } from './core/types.js';
+import {
+  GAP,
+  VIEWPORT_MARGIN,
+  bestPlacement,
+  clampToViewport,
+  getArrowClass,
+  getArrowOffset,
+  getTooltipPosition,
+} from './dom/positioning.js';
+import { restoreScrollPosition } from './dom/scroll-manager.js';
+import { FocusManager } from './overlay/focus-manager.js';
+import { StepRunner } from './overlay/step-runner.js';
+import type { ResolvedTourSnapshot } from './overlay/types.js';
 import type { TourService } from './tour-service.js';
-import type { TourStep, TourSnapshot, TourPlacement } from './types.js';
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const TOOLTIP_W = 320;
-const TOOLTIP_H_MAX = 270;  // conservative max height for clamp & flip checks
-const GAP = 16;
-const VIEWPORT_MARGIN = 24;
-const MUTATION_TIMEOUT = 3000;
+import type { TourDefinition, TourPlacement, TourStep } from './types.js';
 
 /**
  * `<torchlit-overlay>` — Full-screen overlay that renders a spotlight cutout
@@ -370,18 +375,21 @@ export class TorchlitOverlay extends LitElement {
    * Must be set before the overlay will render anything.
    */
   @property({ attribute: false })
-  service!: TourService;
+  service!: TourService<TourStep>;
 
-  @state() private snapshot: TourSnapshot | null = null;
+  @state() private snapshot: ResolvedTourSnapshot | null = null;
   @state() private visible = false;
 
   private unsubscribe?: () => void;
-  private previouslyFocused: HTMLElement | null = null;
-  private autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
+  private teardownTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly focusManager = new FocusManager();
+  private stepRunner: StepRunner | null = null;
   private lastResolvedPlacement: TourPlacement = 'bottom';
   private scrollRafId = 0;
   private savedScrollY = 0;
-  private activeTourId: string | null = null;
+  private activeTour: TourDefinition | null = null;
+  private resolvedTargetElement: Element | null = null;
+  private changeToken = 0;
 
   /* ── Lifecycle ──────────────────────────────────── */
 
@@ -400,6 +408,7 @@ export class TorchlitOverlay extends LitElement {
     this.unsubscribe?.();
     this.clearAutoAdvance();
     if (this.scrollRafId) cancelAnimationFrame(this.scrollRafId);
+    if (this.teardownTimer) clearTimeout(this.teardownTimer);
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('scroll', this.handleScroll, true);
     window.removeEventListener('keydown', this.handleKeydown);
@@ -412,15 +421,9 @@ export class TorchlitOverlay extends LitElement {
     }
 
     if (this.visible && this.snapshot) {
-      // Measure the actual tooltip and correct position for 'top' placement
       this.adjustTooltipPosition();
-
-      // Focus the dialog container
       this.updateComplete.then(() => {
-        const dialog = this.shadowRoot?.querySelector<HTMLElement>(
-          '.tour-tooltip, .tour-center-card',
-        );
-        dialog?.focus();
+        this.focusManager.focusDialog(this.shadowRoot);
       });
     }
   }
@@ -446,250 +449,114 @@ export class TorchlitOverlay extends LitElement {
   }
 
   private attachService() {
-    this.unsubscribe = this.service.subscribe(snap => this.handleTourChange(snap));
-  }
+    this.stepRunner = new StepRunner({
+      getCurrentSnapshot: () => this.service.getSnapshot() as CoreTourSnapshot<TourStep> | null,
+      getTour: tourId => this.getTourDefinition(tourId),
+      nextStep: () => this.service.nextStep(),
+      spotlightPadding: this.service.spotlightPadding,
+      targetAttribute: this.service.targetAttribute,
+      dispatchRouteChange: route => this.dispatchRouteChange(route),
+    });
 
-  /* ── Auto-advance ───────────────────────────────── */
-
-  private clearAutoAdvance() {
-    if (this.autoAdvanceTimer !== null) {
-      clearTimeout(this.autoAdvanceTimer);
-      this.autoAdvanceTimer = null;
-    }
-  }
-
-  private startAutoAdvance(ms: number) {
-    this.clearAutoAdvance();
-    this.autoAdvanceTimer = setTimeout(() => {
-      this.autoAdvanceTimer = null;
-      this.service?.nextStep();
-    }, ms);
-  }
-
-  /* ── MutationObserver target resolution ─────────── */
-
-  /**
-   * Wait for a target element to appear in the DOM using a MutationObserver.
-   * Resolves as soon as `deepQuery` finds the target, or after `timeout` ms.
-   */
-  private waitForTarget(
-    targetId: string,
-    timeout = MUTATION_TIMEOUT,
-  ): Promise<Element | null> {
-    const attr = this.service?.targetAttribute ?? 'data-tour-id';
-    const selector = `[${attr}="${targetId}"]`;
-
-    // Fast path — already in the DOM
-    const existing = deepQuery(selector, document.body);
-    if (existing) return Promise.resolve(existing);
-
-    return new Promise<Element | null>(resolve => {
-      let resolved = false;
-      const observer = new MutationObserver(() => {
-        const el = deepQuery(selector, document.body);
-        if (el) {
-          resolved = true;
-          observer.disconnect();
-          resolve(el);
-        }
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-
-      setTimeout(() => {
-        if (!resolved) {
-          observer.disconnect();
-          resolve(deepQuery(selector, document.body));
-        }
-      }, timeout);
+    this.unsubscribe = this.service.subscribe(snapshot => {
+      void this.handleTourChange(snapshot as CoreTourSnapshot<TourStep> | null);
     });
   }
 
-  /* ── Scroll helpers ─────────────────────────────── */
-
-  /**
-   * Whether the target element (plus its tooltip) fits comfortably inside the
-   * viewport. When it doesn't, we only need the top of the target visible —
-   * the tooltip tracks scroll, so the user can explore the rest naturally.
-   */
-  private fitsInViewport(el: Element): boolean {
-    return el.getBoundingClientRect().height + TOOLTIP_H_MAX + GAP * 2 < window.innerHeight;
+  private clearAutoAdvance() {
+    this.stepRunner?.clearAutoAdvance();
   }
 
-  /* ── Tour state handler ─────────────────────────── */
+  private startAutoAdvance(ms: number) {
+    this.stepRunner?.startAutoAdvance(ms);
+  }
 
-  private async handleTourChange(snapshot: TourSnapshot | null) {
+  private async handleTourChange(snapshot: CoreTourSnapshot<TourStep> | null) {
+    const token = ++this.changeToken;
     this.clearAutoAdvance();
+    if (this.teardownTimer) {
+      clearTimeout(this.teardownTimer);
+      this.teardownTimer = null;
+    }
 
     if (!snapshot) {
-      // Tour ended — fade out, restore focus, and restore scroll
-      const endingTourId = this.activeTourId;
+      const endingTour = this.activeTour;
       this.visible = false;
-      this.activeTourId = null;
-      setTimeout(() => {
+      this.activeTour = null;
+      this.resolvedTargetElement = null;
+      this.teardownTimer = setTimeout(() => {
+        if (token !== this.changeToken) return;
+
         this.snapshot = null;
-        if (this.previouslyFocused) {
-          this.previouslyFocused.focus();
-          this.previouslyFocused = null;
-        }
-        // Scroll restore
-        const tour = endingTourId ? this.service?.getTour(endingTourId) : null;
-        const scrollMode = tour?.onEndScroll ?? 'restore';
-        if (scrollMode === 'restore') {
-          window.scrollTo({ top: this.savedScrollY, behavior: 'smooth' });
-        } else if (scrollMode === 'top') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        this.focusManager.restore();
+        restoreScrollPosition(endingTour?.onEndScroll ?? 'restore', this.savedScrollY);
       }, 300);
       return;
     }
 
-    // Save the element that had focus and scroll position before the tour started
-    if (!this.snapshot) {
-      if (document.activeElement instanceof HTMLElement) {
-        this.previouslyFocused = document.activeElement;
-      }
+    const isNewTour = snapshot.tourId !== this.activeTour?.id;
+    if (!this.activeTour) {
+      this.focusManager.capture();
+    }
+    if (isNewTour) {
       this.savedScrollY = window.scrollY;
-      this.activeTourId = snapshot.tourId;
     }
 
-    // Run beforeShow hook if present
-    if (snapshot.step.beforeShow) {
-      try {
-        await snapshot.step.beforeShow();
-      } catch (err) {
-        console.error('[torchlit] beforeShow hook failed:', err);
-      }
-    }
+    const resolved = await this.stepRunner?.prepareStep(snapshot);
+    if (!resolved || token !== this.changeToken) return;
 
-    // Emit route-change event if the step has a route
-    if (snapshot.step.route) {
-      this.dispatchEvent(new CustomEvent('tour-route-change', {
-        detail: { route: snapshot.step.route },
-        bubbles: true,
-        composed: true,
-      }));
-    }
-
-    // Wait for the target element to appear (handles lazy rendering / route transitions)
-    if (snapshot.step.target && snapshot.step.target !== '_none_') {
-      await this.waitForTarget(snapshot.step.target);
-      this.snapshot = this.service.getSnapshot();
-    } else {
-      this.snapshot = snapshot;
-    }
-
-    // Scroll into view if needed, then show
-    if (this.snapshot?.targetElement) {
-      const rect = this.snapshot.targetElement.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const fits = this.fitsInViewport(this.snapshot.targetElement);
-      const placement = this.snapshot.step.placement;
-      const PADDING = this.service?.spotlightPadding ?? 10;
-
-      // Small targets that fit with their tooltip: require the whole element visible.
-      // Large targets: placement-aware — for 'top' placement, ensure there is
-      // enough room above the target for the tooltip; for other placements,
-      // just require the top to be somewhere on screen.
-      const inView = fits
-        ? rect.top >= 0 && rect.bottom <= vh && rect.left >= 0 && rect.right <= window.innerWidth
-        : placement === 'top'
-          ? rect.top >= TOOLTIP_H_MAX + GAP + PADDING && rect.top < vh
-          : rect.top >= 0 && rect.top < vh;
-
-      if (!inView) {
-        await this.scrollAndSettle(this.snapshot.targetElement, placement);
-        // Recalculate rect at the post-scroll position
-        this.snapshot = this.service.getSnapshot();
-      }
-    }
+    this.activeTour = resolved.tour;
+    this.snapshot = resolved;
+    this.resolvedTargetElement = resolved.targetElement;
 
     requestAnimationFrame(() => {
+      if (token !== this.changeToken) return;
+
       this.visible = true;
-      // Start auto-advance timer if configured
-      if (this.snapshot?.step.autoAdvance) {
-        this.startAutoAdvance(this.snapshot.step.autoAdvance);
+      if (resolved.step.autoAdvance) {
+        this.startAutoAdvance(resolved.step.autoAdvance);
       }
     });
   }
 
-  /**
-   * Scroll an element into view and wait for the scroll to finish.
-   *
-   * Small elements that fit (with their tooltip) are centered in the viewport.
-   * Large elements are scrolled with a **placement-aware** offset so there is
-   * room for the tooltip on the preferred side.  When `placement` is `'top'`,
-   * we reserve enough space above the target for the tooltip; for other
-   * placements the tooltip goes below or beside, so a smaller offset suffices.
-   */
-  private scrollAndSettle(el: Element, placement: TourPlacement): Promise<void> {
-    const vh = window.innerHeight;
-    const rect = el.getBoundingClientRect();
-
-    if (this.fitsInViewport(el)) {
-      // Small targets — center them for a balanced feel
-      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    } else {
-      const PADDING = this.service?.spotlightPadding ?? 10;
-
-      // Reserve space above the target based on preferred tooltip placement.
-      // 'top': the tooltip sits above the target, so leave room for it.
-      // Others: tooltip goes below or beside, so a small offset suffices.
-      const desiredTop = placement === 'top'
-        ? TOOLTIP_H_MAX + GAP + PADDING   // ~296px — room for the tooltip
-        : vh * 0.15;                       // ~15% — comfortable context
-
-      const scrollTarget = window.scrollY + rect.top - desiredTop;
-      window.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
-    }
-
-    return new Promise(resolve => {
-      let lastTop = el.getBoundingClientRect().top;
-      let stableFrames = 0;
-      let rafId = 0;
-      const maxWait = setTimeout(() => { cancelAnimationFrame(rafId); resolve(); }, 1500);
-
-      const poll = () => {
-        const top = el.getBoundingClientRect().top;
-        if (Math.abs(top - lastTop) < 1) {
-          stableFrames++;
-        } else {
-          stableFrames = 0;
-        }
-        lastTop = top;
-
-        // Consider settled after 3 consecutive stable frames (~50ms)
-        if (stableFrames >= 3) {
-          clearTimeout(maxWait);
-          resolve();
-        } else {
-          rafId = requestAnimationFrame(poll);
-        }
-      };
-
-      rafId = requestAnimationFrame(poll);
-    });
+  private dispatchRouteChange(route: string) {
+    this.dispatchEvent(
+      new CustomEvent('tour-route-change', {
+        detail: { route },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
-  /* ── Event handlers ─────────────────────────────── */
+  private getTourDefinition(tourId: string): TourDefinition | undefined {
+    return this.service?.getTour(tourId) as TourDefinition | undefined;
+  }
+
+  private refreshSnapshotFromTarget() {
+    if (!this.snapshot) return;
+
+    const targetElement = this.resolvedTargetElement?.isConnected
+      ? this.resolvedTargetElement
+      : null;
+
+    this.snapshot = {
+      ...this.snapshot,
+      targetElement,
+      targetRect: targetElement?.getBoundingClientRect() ?? null,
+    };
+  }
 
   private handleResize = () => {
-    if (this.snapshot && this.service) {
-      this.snapshot = this.service.getSnapshot();
-    }
+    this.refreshSnapshotFromTarget();
   };
 
-  /** Throttled scroll handler — refreshes the snapshot once per frame. */
   private handleScroll = () => {
-    if (!this.snapshot || !this.service || this.scrollRafId) return;
+    if (!this.snapshot || this.scrollRafId) return;
+
     this.scrollRafId = requestAnimationFrame(() => {
       this.scrollRafId = 0;
-      if (this.snapshot && this.service) {
-        this.snapshot = this.service.getSnapshot();
-      }
+      this.refreshSnapshotFromTarget();
     });
   };
 
@@ -709,8 +576,7 @@ export class TorchlitOverlay extends LitElement {
       this.clearAutoAdvance();
       this.service.prevStep();
     } else if (e.key === 'Tab') {
-      // Focus trap — keep Tab within the tooltip
-      this.trapFocus(e);
+      this.focusManager.trapFocus(e, this.shadowRoot);
     }
   };
 
@@ -719,131 +585,24 @@ export class TorchlitOverlay extends LitElement {
     this.service?.skipTour();
   };
 
-  /* ── Focus trap ─────────────────────────────────── */
-
-  private trapFocus(e: KeyboardEvent) {
-    const container = this.shadowRoot?.querySelector<HTMLElement>(
-      '.tour-tooltip, .tour-center-card',
-    );
-    if (!container) return;
-
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (e.shiftKey) {
-      if (this.shadowRoot?.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (this.shadowRoot?.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  }
-
-  /* ── Smart auto-positioning ─────────────────────── */
-
   /**
    * Determine the best placement for the tooltip, flipping when the preferred
    * placement would clip the viewport. Tries: preferred → opposite → perpendicular.
    */
   private bestPlacement(rect: DOMRect, preferred: TourPlacement): TourPlacement {
-    const PADDING = this.service?.spotlightPadding ?? 10;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    const fits = (p: TourPlacement): boolean => {
-      switch (p) {
-        case 'bottom':
-          return rect.bottom + PADDING + GAP + TOOLTIP_H_MAX < vh;
-        case 'top':
-          return rect.top - PADDING - GAP - TOOLTIP_H_MAX > 0;
-        case 'right':
-          return rect.right + PADDING + GAP + TOOLTIP_W < vw;
-        case 'left':
-          return rect.left - PADDING - GAP - TOOLTIP_W > 0;
-      }
-    };
-
-    const opposite: Record<TourPlacement, TourPlacement> = {
-      top: 'bottom', bottom: 'top', left: 'right', right: 'left',
-    };
-
-    const perpendicular: Record<TourPlacement, [TourPlacement, TourPlacement]> = {
-      top: ['left', 'right'], bottom: ['left', 'right'],
-      left: ['top', 'bottom'], right: ['top', 'bottom'],
-    };
-
-    if (fits(preferred)) return preferred;
-    if (fits(opposite[preferred])) return opposite[preferred];
-    for (const p of perpendicular[preferred]) {
-      if (fits(p)) return p;
-    }
-    // Nothing fits perfectly — keep preferred, clampToViewport will save us
-    return preferred;
+    return bestPlacement(rect, preferred, this.service?.spotlightPadding ?? 10);
   }
 
-  /* ── Tooltip positioning ────────────────────────── */
-
   private getTooltipPosition(rect: DOMRect, placement: TourPlacement): { top: number; left: number } {
-    const PADDING = this.service?.spotlightPadding ?? 10;
-    const vh = window.innerHeight;
-
-    // For tall targets, use the visible center rather than the absolute center.
-    // This keeps the tooltip near the portion of the target the user can actually see.
-    const visibleTop = Math.max(0, rect.top);
-    const visibleBottom = Math.min(vh, rect.bottom);
-    const visibleCenterY = (visibleTop + visibleBottom) / 2;
-
-    switch (placement) {
-      case 'right':
-        return {
-          top: visibleCenterY - 80,
-          left: rect.right + PADDING + GAP,
-        };
-      case 'left':
-        return {
-          top: visibleCenterY - 80,
-          left: rect.left - PADDING - GAP - TOOLTIP_W,
-        };
-      case 'bottom':
-        return {
-          top: rect.bottom + PADDING + GAP,
-          left: rect.left + rect.width / 2 - TOOLTIP_W / 2,
-        };
-      case 'top':
-        // Initial estimate — corrected after render in adjustTooltipPosition()
-        return {
-          top: rect.top - PADDING - GAP,
-          left: rect.left + rect.width / 2 - TOOLTIP_W / 2,
-        };
-      default:
-        return { top: rect.bottom + GAP, left: rect.left };
-    }
+    return getTooltipPosition(rect, placement, this.service?.spotlightPadding ?? 10);
   }
 
   private clampToViewport(pos: { top: number; left: number }): { top: number; left: number } {
-    return {
-      top: Math.max(VIEWPORT_MARGIN, Math.min(pos.top, window.innerHeight - TOOLTIP_H_MAX - VIEWPORT_MARGIN)),
-      left: Math.max(VIEWPORT_MARGIN, Math.min(pos.left, window.innerWidth - TOOLTIP_W - VIEWPORT_MARGIN)),
-    };
+    return clampToViewport(pos);
   }
 
   private getArrowClass(placement: TourPlacement): string {
-    switch (placement) {
-      case 'right': return 'arrow-right';
-      case 'left':  return 'arrow-left';
-      case 'bottom': return 'arrow-bottom';
-      case 'top':   return 'arrow-top';
-      default:      return 'arrow-bottom';
-    }
+    return getArrowClass(placement);
   }
 
   /**
@@ -855,24 +614,7 @@ export class TorchlitOverlay extends LitElement {
     tooltipPos: { top: number; left: number },
     placement: TourPlacement,
   ): string {
-    const ARROW_SIZE = 12;
-    const MIN = ARROW_SIZE + 8;
-
-    if (placement === 'top' || placement === 'bottom') {
-      // Horizontal offset
-      const targetCenterX = targetRect.left + targetRect.width / 2;
-      const offset = targetCenterX - tooltipPos.left;
-      const clamped = Math.max(MIN, Math.min(offset, TOOLTIP_W - MIN));
-      return `${clamped}px`;
-    }
-
-    // Vertical offset (left / right placement) — use visible center for tall targets
-    const visibleTop = Math.max(0, targetRect.top);
-    const visibleBottom = Math.min(window.innerHeight, targetRect.bottom);
-    const targetCenterY = (visibleTop + visibleBottom) / 2;
-    const offset = targetCenterY - tooltipPos.top;
-    const clamped = Math.max(MIN, Math.min(offset, TOOLTIP_H_MAX - MIN));
-    return `${clamped}px`;
+    return getArrowOffset(targetRect, tooltipPos, placement);
   }
 
   /* ── Render ─────────────────────────────────────── */

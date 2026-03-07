@@ -107,14 +107,14 @@ That's it. The spotlight finds elements even inside shadow roots.
 // Full library (service + overlay + types + deepQuery)
 import { createTourService, TorchlitOverlay, deepQuery } from 'torchlit';
 
-// Headless service only — zero Lit dependency
+// Headless service only — no DOM access and no Lit types in its declarations
 import { createTourService } from 'torchlit/service';
 
 // Overlay component only
 import { TorchlitOverlay } from 'torchlit/overlay';
 ```
 
-The `torchlit/service` entry point has **zero dependencies** and can be used with any rendering layer.
+The `torchlit/service` entry point is **DOM-free** and can be used with any rendering layer.
 
 ## Features
 
@@ -139,15 +139,26 @@ The `torchlit/service` entry point has **zero dependencies** and can be used wit
 torchlit/
   src/
     index.ts              # Public API barrel export
-    types.ts              # All TypeScript interfaces
-    tour-service.ts       # Framework-agnostic state engine
-    tour-overlay.ts       # Lit web component (rendering)
-    utils/
+    types.ts              # Overlay-facing TypeScript interfaces
+    tour-service.ts       # Stable headless service entrypoint
+    tour-overlay.ts       # Lit overlay composition layer
+    core/
+      tour-service.ts     # Pure state engine
+      types.ts            # Service-facing core types
+    dom/
       deep-query.ts       # Shadow DOM traversal utility
+      positioning.ts      # Placement, tooltip, clamp, arrow helpers
+      scroll-manager.ts   # Scroll-into-view and restore helpers
+      target-resolver.ts  # Target lookup and lazy target waiting
+    overlay/
+      focus-manager.ts    # Focus trap and restore helpers
+      step-runner.ts      # Step preparation orchestration
   test/
-    tour-service.test.ts  # Service unit tests (Vitest)
-    tour-overlay.test.ts  # Overlay positioning & feature tests
+    tour-service.test.ts  # Pure service unit tests (node env)
+    tour-overlay.test.ts  # Overlay integration regressions
     deep-query.test.ts    # Deep query unit tests
+    positioning.test.ts   # Positioning unit tests
+    step-runner.test.ts   # Step orchestration unit tests
   site/
     index.html            # Docs site source (builds to docs/)
   examples/

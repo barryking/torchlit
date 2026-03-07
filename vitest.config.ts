@@ -5,5 +5,11 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     environment: 'jsdom',
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/index.ts', 'src/types.ts'],
+      reporter: ['text', 'lcov'],
+    },
   },
 });

@@ -1,51 +1,57 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { deepQuery } from '../src/utils/deep-query';
+import { afterEach, describe, expect, it } from 'vitest';
+import { deepQuery } from '../src/dom/deep-query';
 
 describe('deepQuery', () => {
   const cleanup: Element[] = [];
 
   afterEach(() => {
-    cleanup.forEach(el => el.remove());
+    cleanup.forEach(element => element.remove());
     cleanup.length = 0;
   });
 
-  function addToBody(el: Element) {
-    document.body.appendChild(el);
-    cleanup.push(el);
-    return el;
+  function addToBody(element: Element) {
+    document.body.appendChild(element);
+    cleanup.push(element);
+    return element;
   }
 
   it('finds an element in light DOM', () => {
-    const el = addToBody(document.createElement('div'));
-    el.setAttribute('data-tour-id', 'light-target');
+    const element = addToBody(document.createElement('div'));
+    element.setAttribute('data-tour-id', 'light-target');
 
-    const found = deepQuery('[data-tour-id="light-target"]');
-    expect(found).toBe(el);
+    expect(deepQuery('[data-tour-id="light-target"]')).toBe(element);
   });
 
-  it('returns null when no match exists', () => {
-    const found = deepQuery('[data-tour-id="does-not-exist"]');
-    expect(found).toBeNull();
+  it('searches through nested open shadow roots', () => {
+    const host = addToBody(document.createElement('div'));
+    const outerShadow = host.attachShadow({ mode: 'open' });
+    const nestedHost = document.createElement('div');
+    outerShadow.appendChild(nestedHost);
+    const innerShadow = nestedHost.attachShadow({ mode: 'open' });
+    const target = document.createElement('button');
+    target.setAttribute('data-tour-id', 'deep-shadow');
+    innerShadow.appendChild(target);
+
+    expect(deepQuery('[data-tour-id="deep-shadow"]')).toBe(target);
   });
 
-  it('searches from a custom root', () => {
-    const container = addToBody(document.createElement('div'));
-    const child = document.createElement('span');
-    child.setAttribute('data-x', 'inner');
-    container.appendChild(child);
+  it('prefers a light DOM match over a later shadow DOM match', () => {
+    const light = addToBody(document.createElement('div'));
+    light.className = 'shared';
 
-    // Searching from container should find it
-    const found = deepQuery('[data-x="inner"]', container);
-    expect(found).toBe(child);
+    const host = addToBody(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'open' });
+    const shadowMatch = document.createElement('div');
+    shadowMatch.className = 'shared';
+    shadow.appendChild(shadowMatch);
+
+    expect(deepQuery('.shared')).toBe(light);
   });
 
-  it('returns the first match found', () => {
-    const first = addToBody(document.createElement('div'));
-    first.classList.add('dup');
-    const second = addToBody(document.createElement('div'));
-    second.classList.add('dup');
+  it('returns null for closed shadow roots', () => {
+    const host = addToBody(document.createElement('div'));
+    host.attachShadow({ mode: 'closed' });
 
-    const found = deepQuery('.dup');
-    expect(found).toBe(first);
+    expect(deepQuery('[data-tour-id="closed-target"]')).toBeNull();
   });
 });

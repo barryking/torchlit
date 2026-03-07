@@ -1,347 +1,190 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TorchlitOverlay } from '../src/tour-overlay';
-import type { TourPlacement } from '../src/types';
+import type { TourSnapshot } from '../src/core/types';
+import type { TourDefinition, TourStep } from '../src/types';
+import * as deepQueryModule from '../src/dom/deep-query';
 
-/* ── Helpers ─────────────────────────────────────────── */
+function priv<T>(overlay: TorchlitOverlay): T {
+  return overlay as unknown as T;
+}
 
-/** Create a minimal mock DOMRect */
-function mockRect(x: number, y: number, w: number, h: number): DOMRect {
+function makeSnapshot(
+  tourId: string,
+  step: TourStep,
+  stepIndex = 0,
+  totalSteps = 1,
+): TourSnapshot<TourStep> {
   return {
-    x,
-    y,
-    width: w,
-    height: h,
-    top: y,
-    left: x,
-    right: x + w,
-    bottom: y + h,
-    toJSON() { return this; },
+    tourId,
+    tourName: tourId,
+    step,
+    stepIndex,
+    totalSteps,
   };
 }
 
-/** Shortcut to access private methods on the overlay instance */
-function priv(overlay: TorchlitOverlay): Record<string, (...args: unknown[]) => unknown> {
-  return overlay as unknown as Record<string, (...args: unknown[]) => unknown>;
+function makeTour(id: string, step: TourStep, overrides: Partial<TourDefinition> = {}): TourDefinition {
+  return {
+    id,
+    name: id,
+    trigger: 'manual',
+    steps: [step],
+    ...overrides,
+  };
 }
 
-describe('TorchlitOverlay — positioning utilities', () => {
-  let overlay: TorchlitOverlay;
+function mockRect(x: number, y: number, width: number, height: number): DOMRect {
+  return {
+    x,
+    y,
+    width,
+    height,
+    top: y,
+    left: x,
+    right: x + width,
+    bottom: y + height,
+    toJSON() {
+      return this;
+    },
+  };
+}
 
-  beforeEach(() => {
-    overlay = new TorchlitOverlay();
-    // Provide a minimal mock service with spotlightPadding
-    (overlay as unknown as { service: { spotlightPadding: number; targetAttribute: string; nextStep: () => void } }).service = {
-      spotlightPadding: 10,
-      targetAttribute: 'data-tour-id',
-      nextStep: vi.fn(),
-    };
-  });
-
-  /* ── bestPlacement ──────────────────────────────── */
-
-  describe('bestPlacement', () => {
-    it('returns preferred placement when it fits', () => {
-      // Target near top-left — plenty of room below and to the right
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
-      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
-
-      const rect = mockRect(100, 100, 200, 40);
-      const result = priv(overlay).bestPlacement(rect, 'bottom');
-      expect(result).toBe('bottom');
-    });
-
-    it('flips to opposite when preferred clips', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
-      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
-
-      // Target near bottom of viewport — no room for tooltip below
-      const rect = mockRect(100, 700, 200, 40);
-      const result = priv(overlay).bestPlacement(rect, 'bottom');
-      expect(result).toBe('top');
-    });
-
-    it('flips to perpendicular when both preferred and opposite clip', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
-      // Very short viewport — no room for top or bottom
-      Object.defineProperty(window, 'innerHeight', { value: 300, writable: true, configurable: true });
-
-      const rect = mockRect(400, 130, 200, 40);
-      const result = priv(overlay).bestPlacement(rect, 'bottom');
-      // Should try left or right
-      expect(['left', 'right']).toContain(result);
-    });
-
-    it('falls back to preferred when nothing fits', () => {
-      // Tiny viewport — nothing fits
-      Object.defineProperty(window, 'innerWidth', { value: 200, writable: true, configurable: true });
-      Object.defineProperty(window, 'innerHeight', { value: 200, writable: true, configurable: true });
-
-      const rect = mockRect(50, 50, 100, 100);
-      const result = priv(overlay).bestPlacement(rect, 'right');
-      expect(result).toBe('right');
-    });
-
-    it('flips left to right when no room on the left', () => {
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
-      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
-
-      // Target at left edge — no room for tooltip on the left
-      const rect = mockRect(10, 300, 50, 40);
-      const result = priv(overlay).bestPlacement(rect, 'left');
-      expect(result).toBe('right');
-    });
-  });
-
-  /* ── getTooltipPosition ─────────────────────────── */
-
-  describe('getTooltipPosition', () => {
-    it('positions below the target for bottom placement', () => {
-      const rect = mockRect(200, 100, 120, 40);
-      const pos = priv(overlay).getTooltipPosition(rect, 'bottom') as { top: number; left: number };
-      // Should be below target + padding + gap
-      expect(pos.top).toBe(100 + 40 + 10 + 16); // rect.bottom + PADDING + GAP
-      expect(pos.left).toBe(200 + 60 - 160);     // centered horizontally
-    });
-
-    it('positions above the target for top placement', () => {
-      const rect = mockRect(200, 400, 120, 40);
-      const pos = priv(overlay).getTooltipPosition(rect, 'top') as { top: number; left: number };
-      // Initial estimate — above target
-      expect(pos.top).toBe(400 - 10 - 16); // rect.top - PADDING - GAP
-    });
-
-    it('positions to the right for right placement', () => {
-      const rect = mockRect(100, 200, 80, 40);
-      const pos = priv(overlay).getTooltipPosition(rect, 'right') as { top: number; left: number };
-      expect(pos.left).toBe(100 + 80 + 10 + 16); // rect.right + PADDING + GAP
-    });
-
-    it('positions to the left for left placement', () => {
-      const rect = mockRect(500, 200, 80, 40);
-      const pos = priv(overlay).getTooltipPosition(rect, 'left') as { top: number; left: number };
-      expect(pos.left).toBe(500 - 10 - 16 - 320); // rect.left - PADDING - GAP - TOOLTIP_W
-    });
-  });
-
-  /* ── clampToViewport ────────────────────────────── */
-
-  describe('clampToViewport', () => {
-    beforeEach(() => {
-      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
-      Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
-    });
-
-    it('clamps negative top to VIEWPORT_MARGIN', () => {
-      const pos = priv(overlay).clampToViewport({ top: -50, left: 100 }) as { top: number; left: number };
-      expect(pos.top).toBe(24); // VIEWPORT_MARGIN
-    });
-
-    it('clamps negative left to VIEWPORT_MARGIN', () => {
-      const pos = priv(overlay).clampToViewport({ top: 100, left: -30 }) as { top: number; left: number };
-      expect(pos.left).toBe(24); // VIEWPORT_MARGIN
-    });
-
-    it('clamps right overflow', () => {
-      const pos = priv(overlay).clampToViewport({ top: 100, left: 900 }) as { top: number; left: number };
-      // max left = 1024 - 320 - 24 = 680
-      expect(pos.left).toBe(680);
-    });
-
-    it('passes through when already in bounds', () => {
-      const pos = priv(overlay).clampToViewport({ top: 200, left: 300 }) as { top: number; left: number };
-      expect(pos.top).toBe(200);
-      expect(pos.left).toBe(300);
-    });
-  });
-
-  /* ── getArrowOffset ─────────────────────────────── */
-
-  describe('getArrowOffset', () => {
-    it('centers arrow horizontally for bottom placement', () => {
-      const targetRect = mockRect(300, 100, 120, 40);
-      const tooltipPos = { top: 166, left: 200 };
-
-      const offset = priv(overlay).getArrowOffset(targetRect, tooltipPos, 'bottom') as string;
-      // target center X = 300 + 60 = 360, tooltip left = 200, offset = 160px
-      expect(offset).toBe('160px');
-    });
-
-    it('clamps arrow to min edge for far-off targets', () => {
-      const targetRect = mockRect(10, 100, 30, 40);
-      const tooltipPos = { top: 166, left: 200 };
-
-      const offset = priv(overlay).getArrowOffset(targetRect, tooltipPos, 'bottom') as string;
-      // target center X = 10 + 15 = 25, tooltip left = 200, raw offset = -175 → clamped to MIN (20)
-      expect(offset).toBe('20px');
-    });
-
-    it('computes vertical offset for left/right placement', () => {
-      const targetRect = mockRect(100, 300, 80, 40);
-      const tooltipPos = { top: 250, left: 206 };
-
-      const offset = priv(overlay).getArrowOffset(targetRect, tooltipPos, 'right') as string;
-      // target center Y = 300 + 20 = 320, tooltip top = 250, offset = 70px
-      expect(offset).toBe('70px');
-    });
-  });
-});
-
-/* ── waitForTarget ─────────────────────────────────── */
-
-describe('TorchlitOverlay — waitForTarget (MutationObserver)', () => {
-  let overlay: TorchlitOverlay;
+describe('TorchlitOverlay', () => {
   const cleanup: Element[] = [];
 
   beforeEach(() => {
-    overlay = new TorchlitOverlay();
-    (overlay as unknown as { service: { spotlightPadding: number; targetAttribute: string } }).service = {
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1280,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    cleanup.forEach(element => element.remove());
+    cleanup.length = 0;
+    vi.restoreAllMocks();
+  });
+
+  it('uses the latest active tour when restoring scroll after a replacement', async () => {
+    vi.useFakeTimers();
+
+    const overlay = new TorchlitOverlay();
+    const stepA: TourStep = {
+      target: '_none_',
+      title: 'A',
+      message: 'First',
+      placement: 'bottom',
+    };
+    const stepB: TourStep = {
+      target: '_none_',
+      title: 'B',
+      message: 'Second',
+      placement: 'bottom',
+    };
+
+    const tours = new Map<string, TourDefinition>([
+      ['tour-a', makeTour('tour-a', stepA, { onEndScroll: 'top' })],
+      ['tour-b', makeTour('tour-b', stepB, { onEndScroll: 'restore' })],
+    ]);
+
+    const service = {
+      subscribe: vi.fn(() => () => {}),
+      getSnapshot: vi.fn(() => null),
+      getTour: vi.fn((tourId: string) => tours.get(tourId)),
+      nextStep: vi.fn(),
+      prevStep: vi.fn(),
+      skipTour: vi.fn(),
       spotlightPadding: 10,
       targetAttribute: 'data-tour-id',
     };
-  });
 
-  afterEach(() => {
-    cleanup.forEach(el => el.remove());
-    cleanup.length = 0;
-  });
+    priv<{ service: typeof service; attachService: () => void }>(overlay).service = service;
+    priv<{ attachService: () => void }>(overlay).attachService();
 
-  it('resolves immediately when the target already exists', async () => {
-    const el = document.createElement('div');
-    el.setAttribute('data-tour-id', 'existing-target');
-    document.body.appendChild(el);
-    cleanup.push(el);
+    const scrollSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 
-    const found = await priv(overlay).waitForTarget('existing-target', 500);
-    expect(found).toBe(el);
-  });
+    Object.defineProperty(window, 'scrollY', { value: 120, configurable: true });
+    await priv<{ handleTourChange: (snapshot: TourSnapshot<TourStep> | null) => Promise<void> }>(overlay)
+      .handleTourChange(makeSnapshot('tour-a', stepA));
 
-  it('resolves when the target is added to the DOM after a delay', async () => {
-    const promise = priv(overlay).waitForTarget('lazy-target', 2000) as Promise<Element | null>;
+    Object.defineProperty(window, 'scrollY', { value: 480, configurable: true });
+    await priv<{ handleTourChange: (snapshot: TourSnapshot<TourStep> | null) => Promise<void> }>(overlay)
+      .handleTourChange(makeSnapshot('tour-b', stepB));
 
-    // Add the element asynchronously
-    setTimeout(() => {
-      const el = document.createElement('div');
-      el.setAttribute('data-tour-id', 'lazy-target');
-      document.body.appendChild(el);
-      cleanup.push(el);
-    }, 50);
+    await priv<{ handleTourChange: (snapshot: TourSnapshot<TourStep> | null) => Promise<void> }>(overlay)
+      .handleTourChange(null);
 
-    const found = await promise;
-    expect(found).not.toBeNull();
-    expect(found?.getAttribute('data-tour-id')).toBe('lazy-target');
-  });
+    vi.advanceTimersByTime(300);
 
-  it('resolves with null when the target never appears (timeout)', async () => {
-    const found = await priv(overlay).waitForTarget('never-exists', 100);
-    expect(found).toBeNull();
-  });
-});
+    expect(scrollSpy).toHaveBeenCalledWith({ top: 480, behavior: 'smooth' });
+    expect(scrollSpy).not.toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
 
-/* ── Auto-advance ──────────────────────────────────── */
-
-describe('TorchlitOverlay — auto-advance', () => {
-  let overlay: TorchlitOverlay;
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-    overlay = new TorchlitOverlay();
-  });
-
-  afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('starts a timer that calls service.nextStep', () => {
-    const nextStep = vi.fn();
-    (overlay as unknown as { service: { nextStep: () => void; spotlightPadding: number } }).service = {
-      nextStep,
+  it('reuses the cached target element on resize and scroll without re-querying the DOM', async () => {
+    const overlay = new TorchlitOverlay();
+    const step: TourStep = {
+      target: 'cached-target',
+      title: 'Cached',
+      message: 'Reuse rects',
+      placement: 'bottom',
+    };
+    const snapshot = makeSnapshot('tour', step);
+    const target = document.createElement('button');
+    target.setAttribute('data-tour-id', 'cached-target');
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      mockRect(200, 240, 160, 48),
+    );
+    document.body.appendChild(target);
+    cleanup.push(target);
+
+    const tour = makeTour('tour', step);
+    const service = {
+      subscribe: vi.fn(() => () => {}),
+      getSnapshot: vi.fn(() => snapshot),
+      getTour: vi.fn(() => tour),
+      nextStep: vi.fn(),
+      prevStep: vi.fn(),
+      skipTour: vi.fn(),
       spotlightPadding: 10,
+      targetAttribute: 'data-tour-id',
     };
 
-    priv(overlay).startAutoAdvance(3000);
+    priv<{ service: typeof service; attachService: () => void }>(overlay).service = service;
+    priv<{ attachService: () => void }>(overlay).attachService();
 
-    expect(nextStep).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(3000);
-    expect(nextStep).toHaveBeenCalledOnce();
-  });
+    const deepQuerySpy = vi.spyOn(deepQueryModule, 'deepQuery');
+    await priv<{ handleTourChange: (snapshot: TourSnapshot<TourStep> | null) => Promise<void> }>(overlay)
+      .handleTourChange(snapshot);
 
-  it('clears the timer so it does not fire', () => {
-    const nextStep = vi.fn();
-    (overlay as unknown as { service: { nextStep: () => void; spotlightPadding: number } }).service = {
-      nextStep,
-      spotlightPadding: 10,
-    };
+    const initialCalls = deepQuerySpy.mock.calls.length;
+    const rafSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0);
+        return 1;
+      });
 
-    priv(overlay).startAutoAdvance(3000);
-    priv(overlay).clearAutoAdvance();
+    priv<{ handleResize: () => void }>(overlay).handleResize();
+    priv<{ handleScroll: () => void }>(overlay).handleScroll();
 
-    vi.advanceTimersByTime(5000);
-    expect(nextStep).not.toHaveBeenCalled();
-  });
+    expect(deepQuerySpy.mock.calls.length).toBe(initialCalls);
+    expect(
+      priv<{ snapshot: { targetElement: Element | null; targetRect: DOMRect | null } | null }>(overlay)
+        .snapshot?.targetElement,
+    ).toBe(target);
+    expect(
+      priv<{ snapshot: { targetElement: Element | null; targetRect: DOMRect | null } | null }>(overlay)
+        .snapshot?.targetRect?.top,
+    ).toBe(240);
 
-  it('replaces previous timer when called again', () => {
-    const nextStep = vi.fn();
-    (overlay as unknown as { service: { nextStep: () => void; spotlightPadding: number } }).service = {
-      nextStep,
-      spotlightPadding: 10,
-    };
-
-    priv(overlay).startAutoAdvance(2000);
-    vi.advanceTimersByTime(1000);
-
-    // Restart with a fresh 3000ms
-    priv(overlay).startAutoAdvance(3000);
-    vi.advanceTimersByTime(2000);
-    expect(nextStep).not.toHaveBeenCalled(); // 2000 < 3000
-
-    vi.advanceTimersByTime(1000);
-    expect(nextStep).toHaveBeenCalledOnce();
-  });
-});
-
-describe('TorchlitOverlay — scroll restore', () => {
-  let overlay: TorchlitOverlay;
-
-  beforeEach(() => {
-    overlay = new TorchlitOverlay();
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('saves scrollY on first snapshot and stores activeTourId', () => {
-    // Simulate window.scrollY
-    Object.defineProperty(window, 'scrollY', { value: 350, configurable: true });
-
-    const privOverlay = overlay as unknown as Record<string, unknown>;
-    expect(privOverlay.savedScrollY).toBe(0);
-    expect(privOverlay.activeTourId).toBeNull();
-
-    // Simulate first snapshot arriving (snapshot was null, now has data)
-    privOverlay.snapshot = null;
-    // Manually trigger what handleTourChange does on first snapshot
-    privOverlay.savedScrollY = window.scrollY;
-    privOverlay.activeTourId = 'test-tour';
-
-    expect(privOverlay.savedScrollY).toBe(350);
-    expect(privOverlay.activeTourId).toBe('test-tour');
-  });
-
-  it('has default onEndScroll of restore in TourDefinition', async () => {
-    // Import the type to verify the interface allows undefined (defaults to restore)
-    const def = { id: 't', name: 'T', trigger: 'manual' as const, steps: [] };
-    expect(def.onEndScroll).toBeUndefined(); // undefined means default = 'restore'
-  });
-
-  it('accepts onEndScroll values', () => {
-    const tourRestore = { id: 'a', name: 'A', trigger: 'manual' as const, steps: [], onEndScroll: 'restore' as const };
-    const tourTop = { id: 'b', name: 'B', trigger: 'manual' as const, steps: [], onEndScroll: 'top' as const };
-    const tourNone = { id: 'c', name: 'C', trigger: 'manual' as const, steps: [], onEndScroll: 'none' as const };
-
-    expect(tourRestore.onEndScroll).toBe('restore');
-    expect(tourTop.onEndScroll).toBe('top');
-    expect(tourNone.onEndScroll).toBe('none');
+    rafSpy.mockRestore();
   });
 });
