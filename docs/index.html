@@ -1330,7 +1330,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="/torchlit/assets/index-CWpG7LR8.js"></script>
+  <script type="module" crossorigin src="/torchlit/assets/index-DfpzHV01.js"></script>
 </head>
 <body>
   <div class="app">
@@ -1596,6 +1596,10 @@ const tours = createTourService({
   storageKey: 'my-app-tours',   // localStorage key for state
   spotlightPadding: 12,         // px around highlighted element
 });</code></pre>
+          <p class="doc-text">
+            For headless usage, import from <code>torchlit/service</code> — that entrypoint is DOM-free.
+            If your TypeScript code reads <code>snapshot.step</code> directly, type the service with <code>createTourService&lt;TourStep&gt;()</code>.
+          </p>
         </div>
 
         <!-- Step 3 -->
@@ -1767,6 +1771,9 @@ helpButton.addEventListener('click', () =&gt; {
           <h2 class="section-title">Framework Integration</h2>
           <p class="doc-text">
             Torchlit is a web component — it works with any framework. Here's how to wire it into the most popular ones.
+          </p>
+          <p class="doc-text">
+            If your framework code reads <code>snapshot.step</code> directly in TypeScript, create the service with <code>createTourService&lt;TourStep&gt;()</code> so the step is strongly typed.
           </p>
 
           <div class="recipe-sub">
@@ -2273,10 +2280,10 @@ tours.register({
 
         <!-- createTourService -->
         <div class="doc-section">
-          <h2 class="section-title" id="ref-service">createTourService(config?)</h2>
+          <h2 class="section-title" id="ref-service">createTourService&lt;TStep = unknown&gt;(config?)</h2>
           <p class="doc-text">
             Factory function that returns a new <code>TourService</code> instance.
-            Import from <code>torchlit</code> or <code>torchlit/service</code> (the latter skips the overlay for service-only use).
+            Import from <code>torchlit</code> or <code>torchlit/service</code> (the latter skips the overlay for service-only use and stays DOM-free).
           </p>
           <pre><code class="language-typescript">import { createTourService } from 'torchlit';
 
@@ -2284,6 +2291,19 @@ const tours = createTourService({
   storageKey: 'my-app-tours',
   spotlightPadding: 12,
 });</code></pre>
+          <p class="doc-text">
+            In TypeScript, pass a step type when you consume <code>snapshot.step</code> directly.
+          </p>
+          <pre><code class="language-typescript">import { createTourService } from 'torchlit/service';
+import type { TourStep } from 'torchlit';
+
+const tours = createTourService&lt;TourStep&gt;();</code></pre>
+
+          <h3 class="subsection-title">Service changes in 0.3.0</h3>
+          <ul class="doc-text" style="padding-left: 1.25rem;">
+            <li><code>TourService</code> is now generic.</li>
+            <li><code>findTarget()</code> moved out of the service API; use <code>deepQuery(...)</code>.</li>
+          </ul>
 
           <h3 class="subsection-title">TourConfig</h3>
           <table class="ref-table">
@@ -2329,8 +2349,7 @@ const tours = createTourService({
               <tr><td><code>shouldAutoStart</code></td><td class="sig">shouldAutoStart(tourId: string): boolean</td><td>Returns <code>true</code> if the tour has <code>trigger: 'first-visit'</code> and hasn't been completed or dismissed</td></tr>
               <tr><td><code>getTour</code></td><td class="sig">getTour(id: string): TourDefinition | undefined</td><td>Look up a registered tour by ID</td></tr>
               <tr><td><code>getAvailableTours</code></td><td class="sig">getAvailableTours(): TourDefinition[]</td><td>All registered tours</td></tr>
-              <tr><td><code>getSnapshot</code></td><td class="sig">getSnapshot(): TourSnapshot | null</td><td>Current step state for the overlay (null if no tour is active)</td></tr>
-              <tr><td><code>findTarget</code></td><td class="sig">findTarget(targetId: string): Element | null</td><td>Find an element by <code>data-tour-id</code> (traverses shadow DOM)</td></tr>
+              <tr><td><code>getSnapshot</code></td><td class="sig">getSnapshot(): TourSnapshot&lt;TStep&gt; | null</td><td>Current core service state for the active step (null if no tour is active)</td></tr>
             </tbody>
           </table>
 
@@ -2454,18 +2473,26 @@ torchlit-overlay::part(backdrop) {
           </table>
 
           <h3 class="subsection-title">TourSnapshot</h3>
+          <pre><code class="language-typescript">type TourSnapshot&lt;TStep = unknown&gt; = {
+  tourId: string;
+  tourName: string;
+  step: TStep;
+  stepIndex: number;
+  totalSteps: number;
+};</code></pre>
           <table class="ref-table">
             <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
             <tbody>
               <tr><td><code>tourId</code></td><td><code>string</code></td><td>ID of the active tour</td></tr>
               <tr><td><code>tourName</code></td><td><code>string</code></td><td>Name of the active tour</td></tr>
-              <tr><td><code>step</code></td><td><code>TourStep</code></td><td>The current step object</td></tr>
+              <tr><td><code>step</code></td><td><code>TStep</code></td><td>The current step object</td></tr>
               <tr><td><code>stepIndex</code></td><td><code>number</code></td><td>Zero-based index of the current step</td></tr>
               <tr><td><code>totalSteps</code></td><td><code>number</code></td><td>Total number of steps in the tour</td></tr>
-              <tr><td><code>targetRect</code></td><td><code>DOMRect | null</code></td><td>Bounding rect of the target element (null for <code>_none_</code>)</td></tr>
-              <tr><td><code>targetElement</code></td><td><code>Element | null</code></td><td>The resolved DOM element (null for <code>_none_</code>)</td></tr>
             </tbody>
           </table>
+          <p class="doc-text">
+            DOM-resolved target elements and bounding rects are overlay-internal resolved state and are not part of <code>torchlit/service</code>.
+          </p>
 
           <h3 class="subsection-title">TourState</h3>
           <p class="doc-text">Persisted state managed by the service. Exposed as a type for custom storage adapters.</p>
@@ -2484,7 +2511,7 @@ torchlit-overlay::part(backdrop) {
 }</code></pre>
 
           <h3 class="subsection-title">TourListener</h3>
-          <pre><code class="language-typescript">type TourListener = (snapshot: TourSnapshot | null) =&gt; void;</code></pre>
+          <pre><code class="language-typescript">type TourListener&lt;TStep = unknown&gt; = (snapshot: TourSnapshot&lt;TStep&gt; | null) =&gt; void;</code></pre>
         </div>
 
         <!-- deepQuery -->
@@ -2492,7 +2519,7 @@ torchlit-overlay::part(backdrop) {
           <h2 class="section-title" id="ref-deepquery">deepQuery(selector, root?)</h2>
           <p class="doc-text">
             Finds the first element matching a CSS selector, traversing into shadow roots.
-            Used internally by <code>TourService.findTarget()</code> but exported for your own use.
+            Use it when you need public DOM or shadow DOM target lookup outside the overlay layer.
           </p>
           <pre><code class="language-typescript">import { deepQuery } from 'torchlit';
 

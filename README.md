@@ -114,7 +114,37 @@ import { createTourService } from 'torchlit/service';
 import { TorchlitOverlay } from 'torchlit/overlay';
 ```
 
-The `torchlit/service` entry point is **DOM-free** and can be used with any rendering layer.
+The `torchlit/service` entry point is **DOM-free** and can be used with any rendering layer. It does not expose DOM lookup helpers like `findTarget()`. Use `deepQuery(...)` from `torchlit` when you need DOM or shadow DOM target lookup.
+
+### TypeScript note
+
+If you read `snapshot.step` in TypeScript, pass a step type to `createTourService<TStep>()` so the current step is strongly typed.
+
+```typescript
+import { createTourService } from 'torchlit/service';
+import type { TourStep } from 'torchlit';
+
+const tours = createTourService<TourStep>();
+const snapshot = tours.getSnapshot();
+
+if (snapshot) {
+  console.log(snapshot.step.title);
+}
+```
+
+### 0.3.0 Service Change
+
+`TourService.findTarget()` is no longer part of the service API. Use `deepQuery('[data-tour-id="..."]')` instead.
+
+```typescript
+import { deepQuery } from 'torchlit';
+
+// Before
+tours.findTarget('sidebar-nav');
+
+// After
+deepQuery('[data-tour-id="sidebar-nav"]');
+```
 
 ## Features
 
